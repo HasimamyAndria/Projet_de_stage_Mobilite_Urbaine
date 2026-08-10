@@ -16,6 +16,7 @@ env/
 # =========================
 
 .env
+!.env.example
 
 # =========================
 # React / Vite / Node
@@ -56,6 +57,14 @@ Thumbs.db
 # PostgreSQL / sauvegardes
 # =========================
 
-*.sql
 *.dump
 *.backup
+backups/
+
+# SQL générés / dumps locaux — garder les scripts versionnés
+*.sql
+!backend/scripts/sql/**/*.sql
+!docker/**/*.sql
+
+# Preuves smoke locales
+backend/scripts/_smoke*_last.json

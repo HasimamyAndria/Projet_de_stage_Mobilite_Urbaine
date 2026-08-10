@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Soutenance — Mobilité Urbaine</title>
+  <style>
+    :root {
+      --bg: #0f1c24;
+      --panel: #162832;
+      --ink: #e8f0f4;
+      --muted: #9bb0bc;
+      --accent: #3d9b8f;
+      --accent-2: #e2a86a;
+      --line: #2a4450;
+      --danger: #c45c4a;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", "Candara", "Trebuchet MS", sans-serif;
+    }
+    .deck {
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    .slide {
+      display: none;
+      height: 100%;
+      padding: 4.5vh 6vw 8vh;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #1d3a45 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 100%, #243028 0%, transparent 50%),
+        var(--bg);
+    }
+    .slide.active { display: flex; flex-direction: column; justify-content: center; }
+    h1 {
+      font-size: clamp(1.8rem, 4.2vw, 3rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.6rem;
+      max-width: 18ch;
+      line-height: 1.15;
+    }
+    h2 {
+      font-size: clamp(1.5rem, 3.2vw, 2.3rem);
+      margin: 0 0 1.2rem;
+      letter-spacing: -0.01em;
+    }
+    .subtitle { color: var(--muted); font-size: 1.15rem; max-width: 42rem; line-height: 1.45; }
+    .meta { margin-top: 2rem; color: var(--muted); font-size: 0.95rem; }
+    .meta strong { color: var(--ink); }
+    .quote {
+      font-size: clamp(1.25rem, 2.6vw, 1.85rem);
+      line-height: 1.35;
+      max-width: 28ch;
+      border-left: 4px solid var(--accent);
+      padding-left: 1.1rem;
+      margin: 0;
+    }
+    ul { margin: 0; padding-left: 1.2rem; font-size: 1.2rem; line-height: 1.55; max-width: 40rem; }
+    li { margin-bottom: 0.45rem; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      max-width: 56rem;
+    }
+    .card {
+      background: color-mix(in srgb, var(--panel) 88%, black);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+    }
+    .card h3 { margin: 0 0 0.7rem; color: var(--accent); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .arch {
+      display: grid;
+      gap: 0.55rem;
+      max-width: 28rem;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 0.95rem;
+    }
+    .arch .box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      text-align: center;
+    }
+    .arch .arrow { text-align: center; color: var(--muted); }
+    .stack {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      max-width: 44rem;
+    }
+    .pill {
+      display: inline-block;
+      background: #214048;
+      color: #b7e4dc;
+      border-radius: 999px;
+      padding: 0.15rem 0.65rem;
+      font-size: 0.85rem;
+      margin-right: 0.35rem;
+    }
+    .footer-bar {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.65rem 1.2rem;
+      background: rgba(8, 16, 22, 0.72);
+      border-top: 1px solid var(--line);
+      font-size: 0.85rem;
+      color: var(--muted);
+      backdrop-filter: blur(6px);
+    }
+    .footer-bar kbd {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 0.1rem 0.35rem;
+      color: var(--ink);
+      font-size: 0.78rem;
+    }
+    .accent { color: var(--accent-2); }
+    .small { font-size: 0.95rem; color: var(--muted); margin-top: 1rem; }
+    @media print {
+      .footer-bar { display: none; }
+      .slide {
+        display: flex !important;
+        page-break-after: always;
+        height: 100vh;
+      }
+    }
+    @media (max-width: 800px) {
+      .grid-2, .stack { grid-template-columns: 1fr; }
+      .slide { padding: 3vh 5vw 10vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck" id="deck">
+
+    <section class="slide active" data-title="Titre">
+      <p class="pill">Stage M2</p>
+      <h1>Aide à la décision mobilité urbaine</h1>
+      <p class="subtitle">MVP cartographique &amp; analytique — flux OD, points clés, équilibre emploi-habitat</p>
+      <p class="meta">
+        <strong>[Étudiant]</strong> · [Organisme]<br />
+        Tuteurs : [Entreprise] · [Académique]<br />
+        <span class="accent">Remplacer les crochets avant le jour J</span>
+      </p>
+    </section>
+
+    <section class="slide" data-title="Problématique">
+      <h2>Problématique</h2>
+      <ul>
+        <li>Déséquilibres <strong>emploi / habitat</strong> → pression sur les déplacements</li>
+        <li>Décideurs : besoin d’une <strong>vue synthétique spatiale</strong></li>
+        <li>Contrainte : données <strong>agrégées</strong>, pas de surveillance individuelle</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Vision">
+      <h2>Vision produit</h2>
+      <p class="quote">Aider urbanistes et élus à localiser flux majeurs et déséquilibres territoriaux pour prioriser diagnostics et investissements.</p>
+    </section>
+
+    <section class="slide" data-title="Périmètre">
+      <h2>Périmètre MVP</h2>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Must livré</h3>
+          <ul>
+            <li>M1 Flux / carte / desire lines</li>
+            <li>M2 Points clés</li>
+            <li>M5 KPI</li>
+            <li>M6 Indice emploi-habitat</li>
+            <li>Socle OSM + routing</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Reporté</h3>
+          <ul>
+            <li>M3 Recommandations</li>
+            <li>M4 Simulation what-if</li>
+            <li>Clustering ML avancé</li>
+            <li>Auth SaaS / multi-tenant</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Architecture">
+      <h2>Architecture</h2>
+      <div class="arch">
+        <div class="box">Urbaniste / Élu</div>
+        <div class="arrow">↓</div>
+        <div class="box">React + MapLibre</div>
+        <div class="arrow">↓ GeoJSON / HTTP</div>
+        <div class="box">FastAPI</div>
+        <div class="arrow">↓</div>
+        <div class="box">PostGIS + pgRouting (OSM + OD)</div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Stack">
+      <h2>Stack</h2>
+      <div class="stack">
+        <div class="card"><h3>Front</h3><p>React · MapLibre · axios</p></div>
+        <div class="card"><h3>API</h3><p>FastAPI · SQLAlchemy</p></div>
+        <div class="card"><h3>Data</h3><p>PostGIS · OSM · pgRouting</p></div>
+        <div class="card"><h3>Run</h3><p>Docker Compose · nginx</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Démo">
+      <h2>Démo live</h2>
+      <ul>
+        <li>Carte Antananarivo + couches OSM (bbox)</li>
+        <li>Search · route pgRouting A→B</li>
+        <li>Desire lines + panneau KPI (M5)</li>
+        <li>Points clés (M2) · indice coloré (M6)</li>
+        <li><strong>Une décision métier</strong> tirée de l’écran</li>
+      </ul>
+      <p class="small">URL : http://localhost:8080 · Plan B : captures si API down</p>
+    </section>
+
+    <section class="slide" data-title="Méthodes">
+      <h2>Méthodes</h2>
+      <ul>
+        <li><strong>M2</strong> : heuristiques dortoir / emploi / mixte + top corridors OD</li>
+        <li><strong>M6</strong> : <code>eh_index = 1 − |J−P|/(J+P)</code> ∈ [0, 1]</li>
+        <li><strong>M1</strong> : desire line ≠ itinéraire routier</li>
+        <li>Démo : proxies OD <strong>synthétiques</strong> (pipeline prêt pour OD réel)</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Qualité">
+      <h2>Qualité &amp; conformité</h2>
+      <ul>
+        <li>QA smoke API : <strong>19/19 OK</strong></li>
+        <li>RGPD : agrégation zone→zone · <strong>k ≥ 5</strong> · pas d’IDs individuels</li>
+        <li>Sécu MVP : `.env` · CORS restrictif · Swagger off en prod</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Difficultés">
+      <h2>Difficultés &amp; apprentissages</h2>
+      <ul>
+        <li>Graphe routier fragmenté → points démo connectés + Dijkstra bbox</li>
+        <li>Perf spatiale → bbox + LIMIT</li>
+        <li>Scope : tenir le Must, ne pas sur-promettre M3/M4</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Perspectives">
+      <h2>Perspectives</h2>
+      <ul>
+        <li>OD / population / emplois <strong>réels</strong> (pré-agrégés)</li>
+        <li>M6 → accessibilité type 2SFCA / isochrones</li>
+        <li>M2 → clustering si validation métier</li>
+        <li>M3/M4 + auth JWT pour une vraie prod</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Merci">
+      <h1>Merci</h1>
+      <p class="subtitle">Questions ?</p>
+      <p class="meta">Docs : <code>docs/soutenance/</code> · Runbook · QA · Sécurité RGPD</p>
+    </section>
+
+  </div>
+
+  <div class="footer-bar">
+    <span id="progress">1 / 12 — Titre</span>
+    <span><kbd>←</kbd> <kbd>→</kbd> ou clic · <kbd>F</kbd> plein écran · <kbd>P</kbd> imprimer/PDF</span>
+  </div>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    let i = 0;
+    const progress = document.getElementById("progress");
+
+    function show(n) {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, idx) => s.classList.toggle("active", idx === i));
+      progress.textContent = `${i + 1} / ${slides.length} — ${slides[i].dataset.title}`;
+      history.replaceState(null, "", `#${i + 1}`);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+        e.preventDefault(); show(i + 1);
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault(); show(i - 1);
+      } else if (e.key === "Home") show(0);
+      else if (e.key === "End") show(slides.length - 1);
+      else if (e.key.toLowerCase() === "f") {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      } else if (e.key.toLowerCase() === "p") window.print();
+    });
+
+    document.getElementById("deck").addEventListener("click", (e) => {
+      if (e.target.closest("a")) return;
+      const mid = window.innerWidth / 2;
+      show(e.clientX >= mid ? i + 1 : i - 1);
+    });
+
+    const hash = parseInt(location.hash.replace("#", ""), 10);
+    show(Number.isFinite(hash) && hash >= 1 ? hash - 1 : 0);
+  </script>
+</body>
+</html>

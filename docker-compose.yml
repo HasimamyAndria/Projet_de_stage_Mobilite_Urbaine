@@ -1,0 +1,80 @@
+# =============================================================================
+# Mobilité Urbaine — Docker Compose (stage / démo)
+# =============================================================================
+# Démarrage :
+#   copy .env.example -> .env
+#   docker compose up --build
+#
+# URLs :
+#   Front  http://localhost:8080
+#   API    http://localhost:8000
+#   Docs   http://localhost:8000/docs
+# =============================================================================
+
+services:
+  db:
+    image: pgrouting/pgrouting:16-3.4-3.6.1
+    container_name: mobilite_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mobilite}
+      POSTGRES_USER: ${DB_USER:-mobilite}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mobilite_change_me}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mobilite} -d ${DB_NAME:-mobilite}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mobilite_api
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-mobilite}
+      DB_USER: ${DB_USER:-mobilite}
+      DB_PASSWORD: ${DB_PASSWORD:-mobilite_change_me}
+      APP_ENV: ${APP_ENV:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080,http://127.0.0.1:5173}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 25s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: mobilite_web
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgis_data:
+    name: mobilite_postgis_data
