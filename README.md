@@ -29,24 +29,32 @@ docker compose up --build
 | Swagger | http://localhost:8000/docs |
 | Health | http://localhost:8000/health |
 
-### Seed OD démo (M1/M2/M5/M6)
+### Seed OD (M1/M2/M5/M6) — OSM réel par défaut
 
-Après `compose up` (DB healthy) :
+Après `compose up` (DB healthy) **et** import OSM (`planet_osm_*`) :
 
 ```powershell
 docker compose exec backend python scripts/seed_zones_od.py
+# ou en local :
+cd backend
+.\venv\Scripts\python.exe scripts\seed_zones_od.py
+```
+
+Sans OSM (repli grille synthétique) :
+
+```powershell
+.\venv\Scripts\python.exe scripts\seed_zones_od.py --demo
 ```
 
 Puis smoke :
 
 ```powershell
-# depuis l’hôte, API exposée sur :8000
 cd backend
 .\venv\Scripts\python.exe scripts\smoke_mvp_qa.py
 ```
 
-> **OSM Madagascar** (routes/bâtiments/bus) n’est **pas** inclus dans l’image : import volumineux à part (`osm2pgsql`) ou brancher `DB_HOST=host.docker.internal` sur une base déjà peuplée.  
-> Sans OSM, la démo analytics (zones OD, desire lines, KPI, M6) fonctionne après le seed.
+> **OSM Madagascar** n’est **pas** dans l’image Docker : importer le PBF (`osm2pgsql`) ou pointer `DB_HOST=host.docker.internal` vers une base déjà peuplée.  
+> Le seed OSM construit zones + proxies + OD à partir des tables `planet_osm_*` (voir `docs/data-model.md`).
 
 ## Dev local (sans Docker API)
 
@@ -68,7 +76,20 @@ npm run dev
 
 Front : http://localhost:5173 — API : http://127.0.0.1:8000
 
-## Variables d’environnement
+## Multi-villes
+
+Dans l’UI : panneau **Ville** (presets Antananarivo / Paris / Madrid + recherche Nominatim).
+
+```powershell
+# API
+GET  /api/cities/presets
+GET  /api/cities/search?q=Lyon
+GET  /api/cities/current
+POST /api/cities/activate
+```
+
+Pour une nouvelle ville : importer un extract OSM (Geofabrik) dans PostGIS, puis activer la ville — le seed OD se relance automatiquement.
+
 
 Voir [`.env.example`](.env.example) :
 

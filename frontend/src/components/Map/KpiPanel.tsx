@@ -33,6 +33,12 @@ type KeypointsPayload = {
     rules: Record<string, string | number>;
     note: string;
     synthetic: boolean;
+    clustering?: {
+        method: string;
+        k: number;
+        silhouette: number;
+        note: string;
+    };
 };
 
 type EmploiHabitatSummary = {
@@ -62,9 +68,10 @@ export type KpiMetrics = {
 
 type Props = {
     onMetrics?: (metrics: KpiMetrics) => void;
+    refreshKey?: number;
 };
 
-export default function KpiPanel({ onMetrics }: Props) {
+export default function KpiPanel({ onMetrics, refreshKey = 0 }: Props) {
     const [summary, setSummary] = useState<OdSummary | null>(null);
     const [keypoints, setKeypoints] = useState<KeypointsPayload | null>(null);
     const [emploiHabitat, setEmploiHabitat] =
@@ -124,7 +131,7 @@ export default function KpiPanel({ onMetrics }: Props) {
 
         loadPanelData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [refreshKey]);
 
     if (loading) {
         return (
@@ -239,6 +246,14 @@ export default function KpiPanel({ onMetrics }: Props) {
                             </span>
                         </div>
                     </div>
+                    {keypoints.clustering && (
+                        <p className="kpi-muted">
+                            K-means k={keypoints.clustering.k}
+                            {Number.isFinite(keypoints.clustering.silhouette)
+                                ? ` · silhouette ${keypoints.clustering.silhouette}`
+                                : ""}
+                        </p>
+                    )}
                 </section>
             )}
 
@@ -271,27 +286,6 @@ export default function KpiPanel({ onMetrics }: Props) {
                         </li>
                     ))}
                 </ol>
-            </section>
-
-            <section className="kpi-section">
-                <h3>Légende carte</h3>
-                <ul className="kpi-legend">
-                    <li>
-                        <span className="swatch swatch-eh-low" /> Indice M6 bas
-                    </li>
-                    <li>
-                        <span className="swatch swatch-eh-mid" /> Indice M6 moyen
-                    </li>
-                    <li>
-                        <span className="swatch swatch-eh-high" /> Indice M6 haut
-                    </li>
-                    <li>
-                        <span className="swatch swatch-mid" /> Desire line OD
-                    </li>
-                    <li>
-                        <span className="swatch swatch-corridor" /> Corridor M2
-                    </li>
-                </ul>
             </section>
 
             <section className="kpi-note">

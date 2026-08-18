@@ -17,7 +17,7 @@
 
 **Endpoint :** `GET /api/od/summary?top_n=5`
 
-**Limite affichée dans l’UI :** volumes synthétiques (modèle gravitaire), agrégés zone→zone.
+**Limite affichée dans l’UI :** zones/proxies OSM réels ; volumes OD estimés (modèle gravitaire), agrégés zone→zone.
 
 **RGPD / k-anonymité :** aucun flux avec `passenger_count < 5` n’est exposé (`K_ANONYMITY_MIN` dans `backend/app/privacy.py` ; défaut UI = 20). Voir `docs/securite-rgpd.md`.
 
@@ -57,7 +57,7 @@ avec `eh_index ∈ [0, 1]` (si `population + jobs = 0` → score non défini).
 **Limites (à dire en soutenance) :**
 - **Proxy intra-zone uniquement** : on ne mesure pas l’accès aux emplois des zones voisines.
 - Ce n’est **pas** un **2SFCA** (Two-Step Floating Catchment Area) ni un temps de trajet réel.
-- Proxies `population_proxy` / `jobs_proxy` synthétiques (seed démo), pas INSEE/SIRENE.
+- Proxies `population_proxy` / `jobs_proxy` dérivés d’OSM (bâtiments / POI), pas d’enquête officielle.
 - Un score élevé ne garantit pas de courts trajets domicile–travail (polycentrisme, modes, capacité réseau hors scope).
 - Évolution possible : 2SFCA + réseau / isochrones + données emplois réelles.
 
@@ -65,7 +65,7 @@ avec `eh_index ∈ [0, 1]` (si `population + jobs = 0` → score non défini).
 
 **Objectif :** prioriser les zones d’intérêt urbanistique.
 
-**Règles MVP (heuristiques) :**
+**Règles MVP (heuristiques métier) :**
 
 | Label | Condition |
 |-------|-----------|
@@ -74,12 +74,22 @@ avec `eh_index ∈ [0, 1]` (si `population + jobs = 0` → score non défini).
 | Zone mixte | sinon |
 | Corridor | top N flux OD par `trip_count` (proxy saturation) |
 
-**Endpoint :** `GET /api/keypoints?corridor_top_n=5`
+**Clustering spatial (K-means) :**
+
+- Entrée : centroïdes des zones (`lon`, `lat`), mis à l’échelle min-max
+- `k = max(2, min(4, n//3))` (borné par n)
+- Seed fixe `42` (reproductible)
+- Silhouette moyenne renvoyée dans `clustering.silhouette`
+- Nom de groupe = majorité des labels métier dans le cluster
+- **Ce n’est pas** un clustering d’individus ni HDBSCAN
+
+**Endpoint :** `GET /api/keypoints?corridor_top_n=5`  
+Propriétés zone : `label`, `cluster_id`, `cluster_label`
 
 **Limites :**
-- proxies synthétiques population/emplois
+- proxies OSM population/emplois (pas d’enquête)
 - un “corridor” ici = gros volume desire line, pas une mesure de capacité d’axe routier
-- pas encore de clustering ML (K-means/DBSCAN) — possible évolution
+- K-means sphérique / euclidien sur lon-lat : approximation locale (ville ~20 km)
 
 ## M1 — Desire lines (rappel)
 

@@ -8,6 +8,7 @@ from app.routers import zones
 from app.routers import od
 from app.routers import keypoints
 from app.routers import emploi_habitat
+from app.routers import cities
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,7 +49,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Accept", "Content-Type"],
 )
 
@@ -57,6 +58,7 @@ app.include_router(zones.router)
 app.include_router(od.router)
 app.include_router(keypoints.router)
 app.include_router(emploi_habitat.router)
+app.include_router(cities.router)
 
 
 @app.get("/health")

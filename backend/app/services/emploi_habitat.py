@@ -13,6 +13,8 @@ Ce n'est PAS un 2SFCA (pas d'accessibilité spatiale inter-zones).
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.provenance import get_data_provenance
+
 
 def _eh_index(population: int, jobs: int) -> float | None:
     """Calcule l'indice d'équilibre emploi-habitat [0, 1]."""
@@ -73,6 +75,7 @@ def get_emploi_habitat(db: Session) -> dict:
             },
             "formula": "eh_index = 1 - |jobs - population| / (jobs + population)",
             "synthetic": True,
+            "data_source": "none",
             "note": "Aucune zone disponible.",
         }
 
@@ -127,6 +130,7 @@ def get_emploi_habitat(db: Session) -> dict:
         f"avg={avg_score}, min={min_score} ({min_zone}), "
         f"max={max_score} ({max_zone})"
     )
+    provenance = get_data_provenance(db)
 
     return {
         "type": "FeatureCollection",
@@ -141,10 +145,11 @@ def get_emploi_habitat(db: Session) -> dict:
             "max_zone_name": max_zone,
         },
         "formula": "eh_index = 1 - |jobs - population| / (jobs + population)",
-        "synthetic": True,
+        "synthetic": provenance["synthetic"],
+        "data_source": provenance["data_source"],
         "note": (
             "Indice proxy intra-zone (pas de 2SFCA). "
             "1 = équilibre emplois/population, 0 = déséquilibre fort. "
-            "Proxies synthétiques population_proxy / jobs_proxy."
+            + provenance["note"]
         ),
     }

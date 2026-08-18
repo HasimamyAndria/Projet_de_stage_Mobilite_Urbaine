@@ -14,6 +14,7 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 BASE = "http://127.0.0.1:8000"
 
@@ -247,6 +248,16 @@ def main() -> int:
         kp_ok,
         f"code={code} counts={data.get('counts') if isinstance(data, dict) else None}",
     )
+    if kp_ok:
+        clustering = data.get("clustering") or {}
+        feats = (data.get("zones") or {}).get("features") or []
+        has_cluster = bool(feats) and "cluster_id" in (feats[0].get("properties") or {})
+        check(
+            "keypoints clustering (M2)",
+            clustering.get("method") == "kmeans" and has_cluster,
+            f"method={clustering.get('method')} k={clustering.get('k')} "
+            f"sil={clustering.get('silhouette')} cluster_id={has_cluster}",
+        )
 
     code, data = fetch("/api/emploi-habitat")
     eh_ok = (
@@ -274,6 +285,50 @@ def main() -> int:
             f"n_scored={len(scores)} min={min(scores)} max={max(scores)}",
         )
 
+    # --- Multi-villes (US-100) ---
+    code, data = fetch("/api/cities/presets")
+    presets = data.get("presets") if isinstance(data, dict) else None
+    check(
+        "cities/presets",
+        code == 200 and isinstance(presets, list) and len(presets) >= 1,
+        f"code={code} n={len(presets) if isinstance(presets, list) else 0}",
+    )
+
+    code, data = fetch("/api/cities/current")
+    check(
+        "cities/current",
+        code == 200
+        and isinstance(data, dict)
+        and bool(data.get("name"))
+        and "osm_ready" in data,
+        f"code={code} name={data.get('name') if isinstance(data, dict) else None} "
+        f"osm_ready={data.get('osm_ready') if isinstance(data, dict) else None}",
+    )
+
+    tana_cov = {
+        "west": 47.450,
+        "south": -18.950,
+        "east": 47.565,
+        "north": -18.820,
+    }
+    code, data = fetch(f"/api/cities/coverage?{_qs(tana_cov)}")
+    check(
+        "cities/coverage Tana OSM",
+        code == 200 and isinstance(data, dict) and data.get("osm_ready") is True,
+        f"code={code} osm_ready={data.get('osm_ready') if isinstance(data, dict) else None} "
+        f"buildings={data.get('buildings') if isinstance(data, dict) else None}",
+    )
+    code, data = fetch(
+        f"/api/cities/coverage?west={BBOX_OUT['minLon']}&south={BBOX_OUT['minLat']}"
+        f"&east={BBOX_OUT['maxLon']}&north={BBOX_OUT['maxLat']}"
+    )
+    check(
+        "cities/coverage hors OSM",
+        code == 200 and isinstance(data, dict) and data.get("osm_ready") is False,
+        f"code={code} osm_ready={data.get('osm_ready') if isinstance(data, dict) else None}",
+        severity="majeur",
+    )
+
     # --- Synthèse ---
     print("\n" + "=" * 60)
     passed = sum(1 for r in results if r["ok"])
@@ -288,8 +343,8 @@ def main() -> int:
         print("Aucun echec.")
     print("=" * 60)
 
-    # Dump JSON pour le rapport QA
-    out_path = "scripts/_smoke_mvp_qa_last.json"
+    # Dump JSON pour le rapport QA (toujours à côté du script)
+    out_path = Path(__file__).resolve().parent / "_smoke_mvp_qa_last.json"
     try:
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(

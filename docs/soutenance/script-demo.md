@@ -13,9 +13,9 @@
 | 0:00–0:30 | Ouvrir la carte (Antananarivo déjà centré) | « Voici la carte décisionnelle. Fond MapLibre, données OSM et couches analytiques chargées au démarrage. » |
 | 0:30–1:00 | Zoomer ≥ 11 si besoin ; montrer routes / bus | « Les couches OSM (routes, bâtiments, arrêts, lignes) se chargent par **bbox** pour rester performantes. » |
 | 1:00–1:30 | Search : taper `Antananarivo` (ou un lieu connu) | « La recherche recentre la vue — parcours urbaniste classique. » |
-| 1:30–2:00 | Montrer la **route A→B** déjà tracée (pgRouting) | « Une route réseau réelle via **pgRouting** — distincte des desire lines OD qui sont des traits origine→destination. » |
-| 2:00–2:40 | Desire lines + panneau **KPI** (M5) | « Les flux OD agrégés zone→zone : volumes, top origines-destinations. Données **synthétiques** pour la démo, mais le pipeline est le même qu’avec de l’OD réel. » |
-| 2:40–3:20 | Couche **M6** (couleurs) + labels **M2** | « L’indice emploi-habitat colore les zones : vert = plus équilibré, rouge = déséquilibre. Les points clés distinguent dortoirs, pôles d’emploi et corridors de volume. » |
+| 1:30–2:00 | Bouton **Itinéraire démo** | « Une route **réseau** via pgRouting — distincte des desire lines OD. On peut aussi cliquer A puis B. » |
+| 2:00–2:40 | Menu **Flux OD** + panneau **KPI** (M5) | « Les flux OD agrégés zone→zone : volumes, top origines-destinations. Volumes **estimés** (gravité), agrégés. » |
+| 2:40–3:20 | Menu **Zones clés** : clic une zone, puis **Indicateurs** (M6) | « Labels dortoir / pôle, clustering K-means, indice emploi-habitat rouge→vert. » |
 | 3:20–3:50 | **Décision métier** (obligatoire) | Voir phrase ci-dessous. |
 | 3:50–4:00 | Recentrer / pause | « Fin de la démo technique — je reviens sur la méthode et les limites. » |
 
@@ -35,14 +35,14 @@ Variante élu :
 
 ## Points route démo (référence code)
 
-Validés QA (composante connectée du graphe) :
+Validés QA (composante connectée du graphe) — bouton **Itinéraire démo** :
 
 ```text
 A : 47.52928,  -18.903276
 B : 47.5160582, -18.8680788
 ```
 
-(`MapView.tsx` — ne pas improviser d’autres points en live sans test.)
+(`RouteLayer.ts` / `DEMO_ROUTE` — ne pas improviser d’autres points en live sans test.)
 
 ---
 

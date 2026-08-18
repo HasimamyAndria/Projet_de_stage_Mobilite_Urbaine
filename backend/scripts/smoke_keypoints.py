@@ -8,10 +8,14 @@ with urllib.request.urlopen(url, timeout=10) as resp:
     data = json.load(resp)
 
 print("counts", data.get("counts"))
+print("clustering", data.get("clustering"))
 print("rules", data.get("rules"))
 print("zones", len(data.get("zones", {}).get("features", [])))
 print("corridors", len(data.get("corridors", {}).get("features", [])))
 for f in data.get("zones", {}).get("features", [])[:5]:
     p = f["properties"]
-    print(f"  {p['name']}: {p['label_fr']} (ratio={p['pop_jobs_ratio']})")
+    print(
+        f"  {p['name']}: {p['label_fr']} "
+        f"(ratio={p['pop_jobs_ratio']}, cluster={p.get('cluster_label')})"
+    )
 print("OK keypoints")

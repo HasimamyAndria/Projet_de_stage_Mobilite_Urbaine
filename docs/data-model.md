@@ -2,13 +2,13 @@
 
 ## Stratégie de peuplement
 
-Territoire carte : **Antananarivo**. Pour démarrer sans matrice OD officielle :
+Territoire carte : **Antananarivo**.
 
 | Approche | Statut | Contenu |
 |----------|--------|---------|
-| **A — Démo crédible** | **Active** | Grille 4×4 sur **bbox urbaine Antananarivo** (47.45–47.565, -18.95–-18.82) + flux gravitaires |
-| B — Semi-réel | Option | Quartiers OSM (`place=suburb…`) |
-| C — Réel | Plus tard | Shapefile / enquête / OD locale |
+| **B — OSM réel** | **Active (défaut)** | Quartiers OSM (`suburb` / `quarter`) → Voronoi ; proxies bâti + POI ; OD gravitaire |
+| A — Démo grille | Repli `--demo` | Grille 4×4 synthétique (tests sans OSM) |
+| C — Enquête OD | Plus tard | Shapefile / matrice zone→zone officielle |
 
 Volumes **agrégés zone→zone** uniquement.
 
@@ -19,11 +19,11 @@ Volumes **agrégés zone→zone** uniquement.
 | Colonne | Type | Rôle |
 |---------|------|------|
 | `id` | serial | PK |
-| `name` | varchar | Ex. Zone B2 |
-| `geometry` | MultiPolygon **4326** | Emprise |
-| `zone_type` | varchar | `grid_demo` |
-| `population_proxy` | int | Proxy population |
-| `jobs_proxy` | int | Proxy emplois (M6) |
+| `name` | varchar | Nom OSM (quartier) |
+| `geometry` | MultiPolygon **4326** | Cellule Voronoi clipée bbox |
+| `zone_type` | varchar | `osm_suburb` (ou `grid_demo`) |
+| `population_proxy` | int | Bâtiments OSM × facteur |
+| `jobs_proxy` | int | POI + landuse emplois OSM |
 
 ### `mobility_flows` (équivalent OD)
 
@@ -31,12 +31,10 @@ Volumes **agrégés zone→zone** uniquement.
 |---------|------|------|
 | `origin_zone_id` | int | Origine |
 | `destination_zone_id` | int | Destination |
-| `trip_count` | int | Volume agrégé |
-| `average_distance` | numeric | km (proxy) |
-| `average_time` | numeric | min (proxy) |
+| `trip_count` | int | Volume agrégé (estimé) |
+| `average_distance` | numeric | km (proxy distance sphérique) |
+| `average_time` | numeric | min (proxy ~22 km/h) |
 | `mode` | varchar | `all` |
-
-> Note : le fichier historique `mobilite_urbaine_sql_scripts.sql` mentionnait `od_flows` / `geom`. En base, les tables s’appellent `mobility_flows` / `geometry`. L’API unifie via la vue.
 
 ### Vue `v_od_desire_lines`
 
@@ -44,23 +42,43 @@ LineString 4326 centroïde→centroïde + `passenger_count` (= `trip_count`).
 
 ## Scripts
 
-```bash
+```powershell
 cd backend
+# Défaut : OSM réel (planet_osm_* requis)
 .\venv\Scripts\python.exe scripts\seed_zones_od.py
+
+# Option : plus / moins de quartiers
+.\venv\Scripts\python.exe scripts\seed_zones_od.py --top-n 40
+
+# Repli grille synthétique
+.\venv\Scripts\python.exe scripts\seed_zones_od.py --demo
 ```
 
-SQL source : `backend/scripts/sql/19_seed_zones_od_demo.sql`
+Implémentation OSM : `backend/scripts/seed_zones_od_osm.py`
 
 ## API
 
 - `GET /api/od/zones` → polygones GeoJSON
 - `GET /api/od/flows?min_passengers=50` → desire lines
-- `GET /api/od/summary` → KPI rapides
+- `GET /api/od/summary` → KPI (`synthetic: false` si `zone_type` OSM)
 - `GET /api/keypoints` → labels M2 + corridors
-- `GET /api/emploi-habitat` → indice M6 (GeoJSON + summary)
+- `GET /api/emploi-habitat` → indice M6
+
+## Multi-villes
+
+Pipeline portable :
+
+1. Choisir / rechercher une ville (`GET /api/cities/search`, presets)
+2. Activer (`POST /api/cities/activate`) → bbox clampée ~20 km
+3. Si OSM présent dans la bbox → seed zones + OD gravitaire
+4. Sinon → message « importer extract Geofabrik + osm2pgsql »
+
+Antananarivo fonctionne dès que `planet_osm_*` Madagascar est chargé.  
+Paris / Madrid : même code, dès qu’un extract OSM de la ville est importé.
 
 ## Limites (à dire en soutenance)
 
-- Grille ≠ découpage administratif
-- Volumes synthétiques (gravité population×emplois / distance)
-- Suffisant pour M1 desire lines et socle M5/M2/M6
+- Géométries / densités : **réelles OSM**
+- Volumes OD : **estimés** (gravité), pas une enquête ménage
+- Suffisant pour simuler M1/M2/M5/M6 sur un territoire réel
+- Évolution : matrice OD officielle (approche C) par connecteur local

@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.privacy import K_ANONYMITY_MIN, OD_MIN_PASSENGERS_DEFAULT
+from app.services.provenance import get_data_provenance
 
 logger = logging.getLogger("mobilite.od")
 
@@ -160,11 +161,14 @@ def get_od_summary(db: Session, top_n: int = 5) -> dict:
         for r in top_rows
     ]
 
+    provenance = get_data_provenance(db)
+
     logger.info(
-        "od_summary zones=%s flow_count=%s top_n=%s",
+        "od_summary zones=%s flow_count=%s top_n=%s source=%s",
         zones,
         int(row.flow_count),
         len(top_flows),
+        provenance["data_source"],
     )
 
     return {
@@ -176,10 +180,7 @@ def get_od_summary(db: Session, top_n: int = 5) -> dict:
         "top_flows": top_flows,
         "k_anonymity_min": K_ANONYMITY_MIN,
         "source_table": "mobility_flows",
-        "synthetic": True,
-        "note": (
-            "Volumes synthetiques (modele gravitaire population x emplois / distance). "
-            "Donnees agregees zone->zone, aucune donnee individuelle. "
-            f"Seuil k-anonymite k>={K_ANONYMITY_MIN}."
-        ),
+        "synthetic": provenance["synthetic"],
+        "data_source": provenance["data_source"],
+        "note": provenance["note"],
     }

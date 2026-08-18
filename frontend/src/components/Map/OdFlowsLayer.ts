@@ -199,12 +199,26 @@ export async function loadMobilityZones(map: maplibregl.Map) {
   });
 }
 
-export function fitMapToOdZones(map: maplibregl.Map) {
+export function fitMapToBBox(
+  map: maplibregl.Map,
+  bbox: { west: number; south: number; east: number; north: number },
+  duration = 900
+) {
+  if (
+    !Number.isFinite(bbox.west) ||
+    !Number.isFinite(bbox.south) ||
+    !Number.isFinite(bbox.east) ||
+    !Number.isFinite(bbox.north) ||
+    bbox.east <= bbox.west ||
+    bbox.north <= bbox.south
+  ) {
+    return;
+  }
   map.fitBounds(
     [
-      [47.450, -18.950],
-      [47.565, -18.820],
+      [bbox.west, bbox.south],
+      [bbox.east, bbox.north],
     ],
-    { padding: 48, maxZoom: 12.5, duration: 800 }
+    { padding: 48, maxZoom: 13, duration }
   );
 }

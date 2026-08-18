@@ -15,14 +15,25 @@ type Props = {
 export default function SearchBar({ onSelectLocation }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function search() {
     if (!query.trim()) return;
+    setBusy(true);
+    setError(null);
     try {
       const response = await api.get("/api/search", { params: { q: query } });
-      setResults(response.data);
-    } catch (error) {
-      console.error(error);
+      const list = Array.isArray(response.data) ? response.data : [];
+      setResults(list);
+      if (!list.length) {
+        setError("Aucun lieu trouvé dans OSM pour cette requête.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Recherche indisponible (API).");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -33,22 +44,25 @@ export default function SearchBar({ onSelectLocation }: Props) {
   }
 
   return (
-    <div className="search-card">
-      <h3>Recherche</h3>
+    <div className="map-ctrl search-ctrl">
       <input
-        type="text"
+        type="search"
         value={query}
         placeholder="Rechercher un lieu…"
-        onChange={(e) => setQuery(e.target.value)}
+        aria-label="Rechercher un lieu"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (!e.target.value) {
+            setResults([]);
+            setError(null);
+          }
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") search();
         }}
       />
-      <button type="button" onClick={search}>
-        Rechercher
-      </button>
       {results.length > 0 && (
-        <div className="search-results">
+        <div className="map-ctrl-popover search-results-popover">
           {results.map((place, index) => (
             <button
               type="button"
@@ -56,10 +70,17 @@ export default function SearchBar({ onSelectLocation }: Props) {
               onClick={() => selectPlace(place)}
             >
               <strong>{place.name}</strong>
-              <br />
               <small>{place.place}</small>
             </button>
           ))}
+        </div>
+      )}
+      {busy && results.length === 0 && !error && (
+        <div className="map-ctrl-hint">Recherche…</div>
+      )}
+      {error && results.length === 0 && (
+        <div className="map-ctrl-hint" role="status">
+          {error}
         </div>
       )}
     </div>

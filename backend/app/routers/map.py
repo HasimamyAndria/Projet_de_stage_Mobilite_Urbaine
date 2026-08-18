@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.services.routing import calculate_route as route_ab
 
 router = APIRouter(
     prefix="/api",
@@ -447,95 +448,7 @@ def calculate_route(
 ):
     """
     Itineraire A->B via pgRouting.
-    Sous-graphe bbox autour de A/B pour rester rapide (reseau Madagascar entier trop lourd).
+    Ancre A et B sur la même composante du sous-graphe bbox
+    (le graphe OSM est souvent fragmenté).
     """
-    print("===== ROUTE A->B =====")
-    print(f"A=({startLon}, {startLat}) B=({endLon}, {endLat})")
-
-    #=================================================
-    # Sommets les plus proches
-    #=================================================
-    nearest_vertex_sql = text("""
-        SELECT id
-        FROM roads_network_vertices_pgr
-        ORDER BY the_geom <-> ST_Transform(
-            ST_SetSRID(ST_Point(:lon, :lat), 4326),
-            3857
-        )
-        LIMIT 1
-    """)
-
-    start_vertex = db.execute(
-        nearest_vertex_sql, {"lon": startLon, "lat": startLat}
-    ).fetchone()
-    end_vertex = db.execute(
-        nearest_vertex_sql, {"lon": endLon, "lat": endLat}
-    ).fetchone()
-
-    if start_vertex is None or end_vertex is None:
-        print("Aucun sommet reseau trouve")
-        return {"type": "FeatureCollection", "features": []}
-
-    start_id = start_vertex.id
-    end_id = end_vertex.id
-    print("Sommet depart :", start_id)
-    print("Sommet arrivee :", end_id)
-
-    #=================================================
-    # Dijkstra sur sous-graphe (bbox + marge ~5 km)
-    #=================================================
-    pad = 0.05
-    min_lon = min(startLon, endLon) - pad
-    max_lon = max(startLon, endLon) + pad
-    min_lat = min(startLat, endLat) - pad
-    max_lat = max(startLat, endLat) + pad
-    print(f"Sous-graphe bbox : {min_lon},{min_lat} -> {max_lon},{max_lat}")
-
-    # Floats valides seulement (pas de chaine libre) pour le SQL interne pgr_*
-    edges_sql = (
-        "SELECT id, source, target, cost, reverse_cost "
-        "FROM roads_network "
-        "WHERE way && ST_Transform("
-        f"ST_MakeEnvelope({float(min_lon)}, {float(min_lat)}, "
-        f"{float(max_lon)}, {float(max_lat)}, 4326), 3857)"
-    )
-
-    route_sql = text("""
-        SELECT
-            rn.id,
-            ST_AsGeoJSON(ST_Transform(rn.way, 4326))::json AS geometry
-        FROM pgr_dijkstra(
-            :edges_sql,
-            :start_id,
-            :end_id,
-            false
-        ) AS route
-        JOIN roads_network rn ON route.edge = rn.id
-        WHERE route.edge <> -1
-    """)
-
-    rows = db.execute(
-        route_sql,
-        {
-            "edges_sql": edges_sql,
-            "start_id": start_id,
-            "end_id": end_id,
-        },
-    ).fetchall()
-
-    print("Nombre de segments :", len(rows))
-    if not rows:
-        print(
-            "Aucun chemin (composantes deconnectees ou hors sous-graphe). "
-            "Choisir des points sur le meme reseau connecte."
-        )
-
-    features = [
-        {
-            "type": "Feature",
-            "geometry": row.geometry,
-            "properties": {"id": row.id},
-        }
-        for row in rows
-    ]
-    return {"type": "FeatureCollection", "features": features}
+    return route_ab(db, startLon, startLat, endLon, endLat)

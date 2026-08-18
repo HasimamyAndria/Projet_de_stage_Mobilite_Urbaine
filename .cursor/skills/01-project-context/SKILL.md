@@ -14,14 +14,15 @@ Plateforme d'**aide à la décision** pour la mobilité urbaine et l'équilibre 
 
 Sources de vérité :
 - `D:\BIHAR\Sujet\specification_mobilite_urbaine-stage.pdf`
-- `D:\BIHAR\Sujet\Vision_Produit_Mobilite_Urbaine.pdf`
+- `docs/Vision_Produit_Mobilite_Urbaine.pdf`
+- Livrables phase : `docs/exigences-mvp.md`, `docs/backlog-mvp.md`, `docs/ux-mvp.md`, `docs/architecture.md`
 
 ## Stack réelle (repo)
 
 | Couche | Techno |
 |--------|--------|
 | API | FastAPI (`backend/app/main.py`) |
-| DB | PostgreSQL + PostGIS (`DATABASE_URL` via `.env`) |
+| DB | PostgreSQL + PostGIS (`DB_*` via `.env`) |
 | OSM | Tables `planet_osm_line/point/polygon/roads` |
 | Routing | `roads_network` + `pgr_dijkstra` |
 | Front | React 19 + Vite + MapLibre GL |
@@ -31,30 +32,35 @@ Sources de vérité :
 
 ```text
 backend/app/
-  main.py, database.py
-  routers/map.py, routers/zones.py
-  models/, schemas/, services/
+  main.py, database.py, privacy.py
+  routers/  map, zones, od, keypoints, emploi_habitat, cities
+  services/ od, keypoints, emploi_habitat, city_service, provenance
 frontend/src/
-  components/Map/ (MapView, layers, SearchBar)
-  services/api.ts, api.ts
+  components/Map/  MapView, *Layer, SearchBar, CitySelector,
+                   LayerPanel, KpiPanel, stageViews
+  services/api.ts
 ```
 
-## Endpoints déjà présents
+## Endpoints Must
 
 - `GET /api/roads|buildings|bus-stops|bus-lines` (bbox → GeoJSON)
 - `GET /api/search?q=`
-- `GET /api/route` (pgRouting)
+- `GET /api/route` (pgRouting, sous-graphe bbox)
 - `GET /api/zones/bounds`
+- `GET /api/od/zones|flows|summary`
+- `GET /api/keypoints` (labels + K-means)
+- `GET /api/emploi-habitat`
+- `GET|POST /api/cities/*`
 
 ## Modules produit
 
 | ID | Nom | MVP stage |
 |----|-----|-----------|
-| M1 | Cartographie des flux | Must (socle carte + couches) |
-| M2 | Points clés / clustering | Must (basique) |
-| M3 | Recommandations | Should (reportable) |
+| M1 | Cartographie des flux | Must (livré) |
+| M2 | Points clés / clustering | Must (heuristiques + K-means) |
+| M3 | Recommandations | Should (reportable — ne pas coder tant que Must clos) |
 | M4 | Simulation what-if | Should (reportable) |
-| M5 | Dashboard KPI | Must (synthèse) |
+| M5 | Dashboard KPI | Must (panneau + métriques header) |
 | M6 | Emploi-habitat | Must (indice proxy) |
 
 ## Conventions agent
@@ -65,20 +71,20 @@ frontend/src/
 4. Ne jamais committer `.env` / secrets.
 5. Français pour docs métier ; code/idents en anglais.
 6. Préférer étendre `routers/` et `components/Map/` plutôt que tout réécrire.
+7. M3/M4 / auth / export client : seulement après clôture du lot 1 stage.
 
 ## Checklist état projet
 
-Quand on demande l'état :
-
 ```text
-- [ ] Backend démarre (uvicorn)
-- [ ] Front démarre (vite :5173)
-- [ ] PostGIS joignable
-- [ ] Couches carte OK
-- [ ] Route A→B OK
-- [ ] Analytics M2/M6
-- [ ] Docker / prod
-- [ ] Docs soutenance
+- [x] Backend démarre (uvicorn)
+- [x] Front démarre (vite :5173)
+- [x] PostGIS joignable
+- [x] Couches carte OK
+- [x] Route A→B UI (démo + clic A/B)
+- [x] Analytics M2/M5/M6
+- [x] Docker / runbook
+- [x] Docs cadrage 02–05 + soutenance
+- [x] Smoke QA rejoué 2026-08-18 (24/24, preuve `_smoke_mvp_qa_last.json`)
 ```
 
 ## Additional resources

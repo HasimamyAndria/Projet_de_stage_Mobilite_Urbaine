@@ -18,7 +18,7 @@ def list_keypoints(
 ):
     """
     M2 — Points clés :
-    zones dortoir / pôle emploi / mixte + corridors OD.
+    zones dortoir / pôle emploi / mixte, clustering K-means, corridors OD.
     """
     print(f"[API] GET /api/keypoints (corridor_top_n={corridor_top_n})")
     try:
