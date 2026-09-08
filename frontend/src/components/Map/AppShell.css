@@ -76,6 +76,13 @@
   min-height: 0;
 }
 
+.app-fill {
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+}
+
 .app-top {
   padding: 0.85rem 1rem 0.7rem;
   border-bottom: 1px solid var(--ms-border);
@@ -616,4 +623,178 @@
     order: 3;
     flex-basis: 100%;
   }
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.map-chrome-filters {
+  position: absolute;
+  left: 12px;
+  top: 64px;
+  z-index: 6;
+  width: min(280px, calc(100% - 24px));
+  background: color-mix(in srgb, var(--ms-panel) 94%, black);
+  border: 1px solid var(--ms-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.flow-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.flow-filters label,
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--ms-muted);
+}
+
+.flow-filters select,
+.field select,
+.contrib-input,
+.dash-card-head select {
+  border: 1px solid var(--ms-border);
+  background: #0c1424;
+  color: var(--ms-ink);
+  border-radius: 8px;
+  padding: 0.4rem 0.5rem;
+}
+
+.hour-animator {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.hour-animator input[type="range"] {
+  flex: 1;
+  min-width: 80px;
+}
+
+.od-matrix-wrap {
+  overflow: auto;
+  max-height: 360px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+}
+
+.od-matrix {
+  border-collapse: collapse;
+  font-size: 0.65rem;
+  width: 100%;
+}
+
+.od-matrix th,
+.od-matrix td {
+  border: 1px solid var(--ms-border);
+  padding: 3px 4px;
+  text-align: center;
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.compare-table th,
+.compare-table td {
+  border-bottom: 1px solid var(--ms-border);
+  padding: 0.4rem 0.35rem;
+  text-align: left;
+}
+
+.delta-good { color: #86efac; }
+.delta-bad { color: #fca5a5; }
+.export-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.6rem 0;
+}
+.search-card-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.55rem;
+  background: var(--ms-teal-dim, #0f766e);
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+  margin: 0.5rem 0;
+}
+.contrib-input {
+  width: 100%;
+  margin-bottom: 0.4rem;
+  resize: vertical;
+}
+
+.dash-page {
+  padding: 1rem 1.25rem 1.5rem;
+  overflow: auto;
+  min-height: 0;
+  grid-row: 1 / -1;
+}
+.dash-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.dash-head h1 { margin: 0; font-size: 1.15rem; }
+.dash-head p { margin: 0.25rem 0 0; color: var(--ms-muted); font-size: 0.82rem; }
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+.dash-kpi {
+  background: var(--ms-panel-2, #182235);
+  border: 1px solid var(--ms-border);
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+}
+.dash-kpi .label { display: block; font-size: 0.72rem; color: var(--ms-muted); }
+.dash-kpi .value { display: block; font-size: 1.35rem; font-weight: 700; margin: 0.2rem 0; }
+.dash-kpi .hint { font-size: 0.68rem; color: var(--ms-muted); }
+.dash-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.8rem; }
+.dash-card {
+  background: var(--ms-panel);
+  border: 1px solid var(--ms-border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+}
+.dash-card-wide { grid-column: 1 / -1; }
+.spark-row { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+.spark-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.spark-bar { width: 100%; background: var(--ms-teal, #2dd4bf); border-radius: 4px 4px 0 0; min-height: 4px; }
+.spark-col span { font-size: 0.58rem; color: var(--ms-muted); }
+.obj-row { margin-bottom: 0.7rem; }
+.obj-meta { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; margin-bottom: 0.3rem; }
+.obj-bar { height: 8px; background: #0c1424; border-radius: 99px; overflow: hidden; }
+.obj-bar div { height: 100%; background: var(--ms-teal, #2dd4bf); }
+
+@media (max-width: 1100px) {
+  .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-grid { grid-template-columns: 1fr; }
 }

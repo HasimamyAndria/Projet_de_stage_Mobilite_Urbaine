@@ -4,6 +4,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.privacy import K_ANONYMITY_MIN, OD_MIN_PASSENGERS_DEFAULT
+from app.services.disaggregation import (
+    profiles_payload,
+    scale_volume,
+    volume_factor,
+)
 from app.services.provenance import get_data_provenance
 
 logger = logging.getLogger("mobilite.od")
@@ -47,10 +52,19 @@ def get_zones_geojson(db: Session, limit: int = 200) -> dict:
     return {"type": "FeatureCollection", "features": features}
 
 
+def _row_distance_km(row) -> float | None:
+    if row.average_distance is None:
+        return None
+    return float(row.average_distance)
+
+
 def get_od_desire_lines_geojson(
     db: Session,
     min_passengers: int = OD_MIN_PASSENGERS_DEFAULT,
     limit: int = 300,
+    hour: int | None = None,
+    weekday: int | None = None,
+    mode: str | None = None,
 ) -> dict:
     min_passengers = _clamp_min_passengers(min_passengers)
     sql = text(
@@ -77,33 +91,51 @@ def get_od_desire_lines_geojson(
         {"min_passengers": min_passengers, "limit": limit},
     ).fetchall()
 
-    features = [
-        {
-            "type": "Feature",
-            "geometry": row.geometry,
-            "properties": {
-                "id": row.id,
-                "origin_zone_id": row.origin_zone_id,
-                "destination_zone_id": row.destination_zone_id,
-                "origin_name": row.origin_name,
-                "destination_name": row.destination_name,
-                "passenger_count": row.passenger_count,
-                "mode": row.mode,
-                "average_distance_km": (
-                    float(row.average_distance)
-                    if row.average_distance is not None
-                    else None
-                ),
-                "average_time_min": (
-                    float(row.average_time)
-                    if row.average_time is not None
-                    else None
-                ),
-            },
-        }
-        for row in rows
-    ]
-    return {"type": "FeatureCollection", "features": features}
+    features = []
+    for row in rows:
+        daily = int(row.passenger_count)
+        dist = _row_distance_km(row)
+        volume = scale_volume(
+            daily, hour=hour, weekday=weekday, mode=mode, distance_km=dist
+        )
+        if volume < K_ANONYMITY_MIN:
+            continue
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": row.geometry,
+                "properties": {
+                    "id": row.id,
+                    "origin_zone_id": row.origin_zone_id,
+                    "destination_zone_id": row.destination_zone_id,
+                    "origin_name": row.origin_name,
+                    "destination_name": row.destination_name,
+                    "passenger_count": volume,
+                    "volume_daily": daily,
+                    "mode": mode or row.mode or "all",
+                    "hour": hour,
+                    "weekday": weekday,
+                    "average_distance_km": dist,
+                    "average_time_min": (
+                        float(row.average_time)
+                        if row.average_time is not None
+                        else None
+                    ),
+                },
+            }
+        )
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "filters": {
+            "hour": hour,
+            "weekday": weekday,
+            "mode": mode or "all",
+            "min_passengers": min_passengers,
+        },
+        "profiles": profiles_payload(),
+        "synthetic": True,
+    }
 
 
 def get_od_summary(db: Session, top_n: int = 5) -> dict:
@@ -183,4 +215,164 @@ def get_od_summary(db: Session, top_n: int = 5) -> dict:
         "synthetic": provenance["synthetic"],
         "data_source": provenance["data_source"],
         "note": provenance["note"],
+    }
+
+
+def list_od_rows(db: Session, min_passengers: int | None = None) -> list:
+    """Lignes desire lines brutes (journalier, mode=all)."""
+    k = _clamp_min_passengers(min_passengers or K_ANONYMITY_MIN)
+    sql = text(
+        """
+        SELECT
+            id,
+            origin_zone_id,
+            destination_zone_id,
+            origin_name,
+            destination_name,
+            passenger_count,
+            mode,
+            average_distance,
+            average_time,
+            ST_AsGeoJSON(geom)::json AS geometry,
+            ST_X(ST_StartPoint(geom)) AS ox,
+            ST_Y(ST_StartPoint(geom)) AS oy,
+            ST_X(ST_EndPoint(geom)) AS dx,
+            ST_Y(ST_EndPoint(geom)) AS dy
+        FROM v_od_desire_lines
+        WHERE passenger_count >= :k
+        ORDER BY passenger_count DESC
+        """
+    )
+    return list(db.execute(sql, {"k": k}).fetchall())
+
+
+def get_od_matrix(
+    db: Session,
+    hour: int | None = None,
+    weekday: int | None = None,
+    mode: str | None = None,
+    min_passengers: int = OD_MIN_PASSENGERS_DEFAULT,
+) -> dict:
+    min_passengers = _clamp_min_passengers(min_passengers)
+    zones = db.execute(
+        text("SELECT id, name FROM mobility_zones ORDER BY name")
+    ).fetchall()
+    zone_list = [{"id": int(z.id), "name": z.name} for z in zones]
+    rows = list_od_rows(db, min_passengers=K_ANONYMITY_MIN)
+    cells = []
+    for r in rows:
+        dist = float(r.average_distance) if r.average_distance is not None else None
+        volume = scale_volume(
+            int(r.passenger_count),
+            hour=hour,
+            weekday=weekday,
+            mode=mode,
+            distance_km=dist,
+        )
+        if volume < min_passengers:
+            continue
+        cells.append(
+            {
+                "origin_zone_id": int(r.origin_zone_id),
+                "destination_zone_id": int(r.destination_zone_id),
+                "origin_name": r.origin_name,
+                "destination_name": r.destination_name,
+                "passenger_count": volume,
+                "volume_daily": int(r.passenger_count),
+                "average_distance_km": dist,
+            }
+        )
+    return {
+        "zones": zone_list,
+        "cells": cells,
+        "filters": {
+            "hour": hour,
+            "weekday": weekday,
+            "mode": mode or "all",
+            "min_passengers": min_passengers,
+        },
+        "synthetic": True,
+        "note": "Matrice agrégée zone→zone. Filtres = profils synthétiques.",
+    }
+
+
+def get_od_heatmap(
+    db: Session,
+    kind: str = "origin",
+    hour: int | None = None,
+    weekday: int | None = None,
+    mode: str | None = None,
+) -> dict:
+    kind = (kind or "origin").lower()
+    if kind not in {"origin", "destination", "activity"}:
+        kind = "origin"
+    zone_sql = text(
+        """
+        SELECT
+            id, name,
+            COALESCE(population_proxy, 0) AS population_proxy,
+            COALESCE(jobs_proxy, 0) AS jobs_proxy,
+            ST_X(ST_Centroid(geometry)) AS lon,
+            ST_Y(ST_Centroid(geometry)) AS lat
+        FROM mobility_zones
+        """
+    )
+    zones = {int(r.id): r for r in db.execute(zone_sql).fetchall()}
+    weights: dict[int, float] = {zid: 0.0 for zid in zones}
+    if kind == "activity":
+        for zid, z in zones.items():
+            weights[zid] = float(z.population_proxy) + float(z.jobs_proxy)
+    else:
+        rows = list_od_rows(db, min_passengers=K_ANONYMITY_MIN)
+        for r in rows:
+            dist = float(r.average_distance) if r.average_distance is not None else None
+            volume = scale_volume(
+                int(r.passenger_count),
+                hour=hour,
+                weekday=weekday,
+                mode=mode,
+                distance_km=dist,
+            )
+            target = (
+                int(r.origin_zone_id) if kind == "origin" else int(r.destination_zone_id)
+            )
+            if target in weights:
+                weights[target] += volume
+    features = []
+    for zid, z in zones.items():
+        w = weights.get(zid, 0.0)
+        if w <= 0:
+            continue
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [float(z.lon), float(z.lat)]},
+                "properties": {
+                    "id": zid,
+                    "name": z.name,
+                    "weight": round(w, 1),
+                    "kind": kind,
+                },
+            }
+        )
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "kind": kind,
+        "filters": {"hour": hour, "weekday": weekday, "mode": mode or "all"},
+        "synthetic": True,
+    }
+
+
+def get_od_meta() -> dict:
+    return {
+        "modes": ["all", "car", "bus", "walk", "bike"],
+        "hours": list(range(24)),
+        "weekdays": [
+            {"id": i, "label": profiles_payload()["weekday_labels"][i]}
+            for i in range(1, 8)
+        ],
+        "profiles": profiles_payload(),
+        "k_anonymity_min": K_ANONYMITY_MIN,
+        "factor_identity": round(volume_factor(), 4),
     }

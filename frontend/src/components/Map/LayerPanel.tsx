@@ -7,9 +7,17 @@ export type LayerKey =
   | "busLines"
   | "odFlows"
   | "heatmap"
+  | "heatmapOrigin"
+  | "heatmapDest"
   | "keypoints"
   | "emploiHabitat"
   | "corridors"
+  | "convergence"
+  | "deserts"
+  | "carpool"
+  | "unbalanced"
+  | "satellites"
+  | "recommendations"
   | "route";
 
 export const LAYER_DEFS: Array<{
@@ -28,10 +36,24 @@ export const LAYER_DEFS: Array<{
   },
   {
     key: "heatmap",
-    label: "Heatmap densité",
+    label: "Heatmap activité",
     group: "analyse",
     layerIds: ["od-heatmap-layer"],
     defaultOn: true,
+  },
+  {
+    key: "heatmapOrigin",
+    label: "Densité départs",
+    group: "analyse",
+    layerIds: ["od-heatmap-origin"],
+    defaultOn: false,
+  },
+  {
+    key: "heatmapDest",
+    label: "Densité arrivées",
+    group: "analyse",
+    layerIds: ["od-heatmap-dest"],
+    defaultOn: false,
   },
   {
     key: "keypoints",
@@ -49,9 +71,51 @@ export const LAYER_DEFS: Array<{
   },
   {
     key: "corridors",
-    label: "Corridors (zones clés)",
+    label: "Corridors saturés",
     group: "analyse",
     layerIds: ["keypoints-corridors-line"],
+    defaultOn: false,
+  },
+  {
+    key: "convergence",
+    label: "Nœuds de convergence",
+    group: "analyse",
+    layerIds: ["keypoints-convergence"],
+    defaultOn: false,
+  },
+  {
+    key: "deserts",
+    label: "Déserts de mobilité",
+    group: "analyse",
+    layerIds: ["keypoints-deserts-fill", "keypoints-deserts-line"],
+    defaultOn: false,
+  },
+  {
+    key: "carpool",
+    label: "Mutualisation",
+    group: "analyse",
+    layerIds: ["keypoints-carpool-line"],
+    defaultOn: false,
+  },
+  {
+    key: "unbalanced",
+    label: "Couples RH déséquilibrés",
+    group: "analyse",
+    layerIds: ["keypoints-unbalanced-line"],
+    defaultOn: false,
+  },
+  {
+    key: "satellites",
+    label: "Bureaux satellites",
+    group: "analyse",
+    layerIds: ["satellites-fill", "satellites-point"],
+    defaultOn: false,
+  },
+  {
+    key: "recommendations",
+    label: "Recommandations",
+    group: "analyse",
+    layerIds: ["reco-line", "reco-fill", "reco-point"],
     defaultOn: false,
   },
   {

@@ -6,10 +6,12 @@ import { loadRoads } from "./RoadsLayer";
 import { loadBuildings } from "./BuildingsLayer";
 import { loadBusStops } from "./BusStopsLayer";
 import { loadBusLines } from "./BusLinesLayer";
-import { loadOdFlows, loadMobilityZones, fitMapToBBox } from "./OdFlowsLayer";
+import { loadOdFlows, loadMobilityZones, fitMapToBBox, applyOdHour } from "./OdFlowsLayer";
 import { loadKeyPoints } from "./KeyPointsLayer";
 import { loadEmploiHabitat } from "./EmploiHabitatLayer";
 import { loadHeatmap } from "./HeatmapLayer";
+import { loadRecommendations } from "./RecommendationsLayer";
+import { loadSatellites } from "./SatellitesLayer";
 import { DEMO_ROUTE, loadRoute } from "./RouteLayer";
 import { bindZoneInspect } from "./inspectZone";
 import {
@@ -24,26 +26,38 @@ import KpiPanel, { type KpiMetrics } from "./KpiPanel";
 import LayerPanel, { LAYER_DEFS, type LayerKey } from "./LayerPanel";
 import MapLegend from "./MapLegend";
 import TopMetrics from "./TopMetrics";
+import FlowFilters from "../FlowFilters";
+import HourAnimator from "../HourAnimator";
+import OdMatrixPanel from "../OdMatrixPanel";
+import KeyPointsPanel from "../KeyPointsPanel";
+import RecoPanel from "../RecoPanel";
+import SimulationPanel from "../SimulationPanel";
+import EmploiHabitatPanel from "../EmploiHabitatPanel";
+import DashboardView from "../DashboardView";
+import { DEFAULT_OD_FILTERS, type OdFilters } from "../../types";
 import "./AppShell.css";
 
-/** Fond clair type maquette « Carte interactive » (rues / relief lisibles). */
+/** Fond OSM raster sans clé API (CARTO Voyager affiche un watermark "API KEY REQUIRED"). */
 const LIGHT_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
-    carto: {
+    osm: {
       type: "raster",
       tiles: [
-        "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+        "https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
       ],
       tileSize: 256,
-      attribution: "© OpenStreetMap © CARTO",
+      attribution: "© OpenStreetMap contributors",
+      maxzoom: 19,
     },
   },
   layers: [
     {
-      id: "carto-light",
+      id: "osm-basemap",
       type: "raster",
-      source: "carto",
+      source: "osm",
     },
   ],
 };
@@ -83,10 +97,13 @@ export default function MapView() {
   const accuracySourceId = "user-accuracy";
   const visibilityRef = useRef(initialVisibility());
   const cityRef = useRef<ActiveCity>(DEFAULT_CITY);
+  const filtersRef = useRef<OdFilters>(DEFAULT_OD_FILTERS);
+  const [visibility, setVisibility] = useState(initialVisibility);
+  const [filters, setFilters] = useState<OdFilters>(DEFAULT_OD_FILTERS);
+  const [playing, setPlaying] = useState(false);
   const startMarkerRef = useRef<maplibregl.Marker | null>(null);
   const endMarkerRef = useRef<maplibregl.Marker | null>(null);
   const routePickRef = useRef<"off" | "start" | "end">("off");
-  const [visibility, setVisibility] = useState(initialVisibility);
   const [locateStatus, setLocateStatus] = useState<string | null>(null);
   const [locateBusy, setLocateBusy] = useState(false);
   const [outsideCity, setOutsideCity] = useState(false);
@@ -286,10 +303,14 @@ export default function MapView() {
     if (!map) return;
     try {
       await loadMobilityZones(map);
-      await loadHeatmap(map);
-      await loadOdFlows(map, 50);
+      await loadHeatmap(map, "activity", filtersRef.current);
+      await loadHeatmap(map, "origin", filtersRef.current);
+      await loadHeatmap(map, "destination", filtersRef.current);
+      await loadOdFlows(map, filtersRef.current);
       await loadKeyPoints(map);
       await loadEmploiHabitat(map);
+      await loadRecommendations(map);
+      await loadSatellites(map);
       applyVisibility(map, visibilityRef.current);
       setAnalyticsError(null);
     } catch (error) {
@@ -360,10 +381,14 @@ export default function MapView() {
     async function loadAnalyticsLayers() {
       try {
         await loadMobilityZones(map);
-        await loadHeatmap(map);
-        await loadOdFlows(map, 50);
+        await loadHeatmap(map, "activity", filtersRef.current);
+        await loadHeatmap(map, "origin", filtersRef.current);
+        await loadHeatmap(map, "destination", filtersRef.current);
+        await loadOdFlows(map, filtersRef.current);
         await loadKeyPoints(map);
         await loadEmploiHabitat(map);
+        await loadRecommendations(map);
+        await loadSatellites(map);
         fitMapToBBox(map, cityRef.current);
         applyVisibility(map, visibilityRef.current);
         setAnalyticsError(null);
@@ -414,7 +439,7 @@ export default function MapView() {
       endMarkerRef.current?.remove();
       map.remove();
     };
-  }, [applyVisibility, placeRouteMarker, runRoute]);
+  }, [applyVisibility, placeRouteMarker, runRoute, LIGHT_STYLE]);
 
   useEffect(() => {
     visibilityRef.current = visibility;
@@ -423,6 +448,33 @@ export default function MapView() {
     applyVisibility(map, visibility);
   }, [visibility, applyVisibility]);
 
+  useEffect(() => {
+    filtersRef.current = filters;
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+    let cancelled = false;
+    async function refresh() {
+      try {
+        await loadOdFlows(map!, filters);
+        await loadHeatmap(map!, "origin", filters);
+        await loadHeatmap(map!, "destination", filters);
+        if (!cancelled) applyVisibility(map!, visibilityRef.current);
+      } catch (error) {
+        console.error("Erreur refresh OD :", error);
+      }
+    }
+    void refresh();
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.mode, filters.weekday, filters.minPassengers, applyVisibility]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    applyOdHour(map, filters.hour);
+  }, [filters.hour]);
+
   const onToggle = (key: LayerKey) => {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -430,6 +482,9 @@ export default function MapView() {
   const onStageNav = (view: StageView) => {
     setStageView(view);
     setVisibility((prev) => applyViewPreset(prev, view));
+    if (view !== "dashboard") {
+      requestAnimationFrame(() => mapRef.current?.resize());
+    }
   };
 
   const startDemoRoute = () => {
@@ -541,6 +596,23 @@ export default function MapView() {
 
   const cityLabel = activeCity.display_name || activeCity.name;
   const viewCopy = VIEW_COPY[stageView];
+  const showTime = stageView === "carte" || stageView === "od";
+  const showDashboard = stageView === "dashboard";
+
+  let side = <KpiPanel onMetrics={setMetrics} refreshKey={dataEpoch} />;
+  if (stageView === "od") side = <OdMatrixPanel filters={filters} />;
+  else if (stageView === "zones") side = <KeyPointsPanel />;
+  else if (stageView === "reco") side = <RecoPanel />;
+  else if (stageView === "simulation") side = <SimulationPanel />;
+  else if (stageView === "emploi")
+    side = (
+      <EmploiHabitatPanel
+        onReloadSatellites={() => {
+          const map = mapRef.current;
+          if (map) void loadSatellites(map);
+        }}
+      />
+    );
 
   return (
     <div className="app-shell">
@@ -593,6 +665,9 @@ export default function MapView() {
           />
         </header>
 
+        <div className="app-fill">
+        {showDashboard && <DashboardView />}
+        <div className={showDashboard ? "is-hidden" : undefined}>
         <div className="app-workspace">
           <div className="map-stage">
             <div ref={mapContainer} className="map-canvas" />
@@ -602,6 +677,18 @@ export default function MapView() {
               <CitySelector onActivated={onCityActivated} />
               <LayerPanel visibility={visibility} onToggle={onToggle} />
             </div>
+
+            {showTime && (
+              <div className="map-chrome-filters">
+                <FlowFilters filters={filters} onChange={setFilters} compact />
+                <HourAnimator
+                  hour={filters.hour}
+                  playing={playing}
+                  onHour={(hour) => setFilters((prev) => ({ ...prev, hour }))}
+                  onPlaying={setPlaying}
+                />
+              </div>
+            )}
 
             <div className="map-chrome-bottom">
               <MapLegend visibility={visibility} />
@@ -657,9 +744,9 @@ export default function MapView() {
             </div>
           </div>
 
-          <div className="side-panel">
-            <KpiPanel onMetrics={setMetrics} refreshKey={dataEpoch} />
-          </div>
+          <div className="side-panel">{side}</div>
+        </div>
+        </div>
         </div>
 
         <footer className="app-footer">

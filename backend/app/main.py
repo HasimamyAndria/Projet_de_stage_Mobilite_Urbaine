@@ -9,6 +9,9 @@ from app.routers import od
 from app.routers import keypoints
 from app.routers import emploi_habitat
 from app.routers import cities
+from app.routers import recommendations
+from app.routers import simulation
+from app.routers import kpi
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,6 +38,8 @@ app = FastAPI(
 _default_origins = (
     "http://localhost:5173,"
     "http://127.0.0.1:5173,"
+    "http://localhost:5174,"
+    "http://127.0.0.1:5174,"
     "http://localhost:8080,"
     "http://127.0.0.1:8080"
 )
@@ -59,6 +64,9 @@ app.include_router(od.router)
 app.include_router(keypoints.router)
 app.include_router(emploi_habitat.router)
 app.include_router(cities.router)
+app.include_router(recommendations.router)
+app.include_router(simulation.router)
+app.include_router(kpi.router)
 
 
 @app.get("/health")

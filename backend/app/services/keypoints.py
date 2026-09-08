@@ -121,6 +121,43 @@ def _cluster_caption(labels_in_cluster: list[str], cluster_id: int) -> str:
     return f"Groupe {cluster_id + 1} — {LABEL_FR.get(majority, majority)}"
 
 
+def _percentile(values: list[float], p: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    idx = min(len(ordered) - 1, max(0, int(round((len(ordered) - 1) * p))))
+    return float(ordered[idx])
+
+
+def _azimuth_deg(ox: float, oy: float, dx: float, dy: float) -> float:
+    return (math.degrees(math.atan2(dx - ox, dy - oy)) + 360.0) % 360.0
+
+
+def _bus_stop_counts(db: Session) -> dict[int, int]:
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT z.id, COUNT(p.osm_id)::int AS n
+                FROM mobility_zones z
+                LEFT JOIN planet_osm_point p
+                  ON (
+                        p.highway = 'bus_stop'
+                        OR p.public_transport IN ('stop_position', 'platform')
+                        OR p.amenity = 'bus_station'
+                     )
+                  AND ST_Intersects(p.way, ST_Transform(z.geometry, 3857))
+                GROUP BY z.id
+                """
+            )
+        ).fetchall()
+        return {int(r.id): int(r.n) for r in rows}
+    except Exception as exc:  # noqa: BLE001
+        print(f"bus stop counts unavailable: {exc}")
+        db.rollback()
+        return {}
+
+
 def _classify_zone(population: int, jobs: int, pop_med: float, jobs_med: float) -> dict:
     """
     Règles simples (RM-12 style) pour le MVP.
@@ -177,11 +214,19 @@ def get_keypoints(db: Session, corridor_top_n: int = 5) -> dict:
         return {
             "zones": {"type": "FeatureCollection", "features": []},
             "corridors": {"type": "FeatureCollection", "features": []},
+            "convergence": {"type": "FeatureCollection", "features": []},
+            "deserts": {"type": "FeatureCollection", "features": []},
+            "carpool": {"type": "FeatureCollection", "features": []},
+            "unbalanced_pairs": {"type": "FeatureCollection", "features": []},
             "counts": {
                 "dormitory": 0,
                 "employment": 0,
                 "balanced": 0,
                 "corridors": 0,
+                "convergence": 0,
+                "deserts": 0,
+                "carpool": 0,
+                "unbalanced_pairs": 0,
             },
             "clustering": {
                 "method": "kmeans",
@@ -307,12 +352,179 @@ def get_keypoints(db: Session, corridor_top_n: int = 5) -> dict:
 
     counts["corridors"] = len(corridor_features)
 
+    flow_rows = db.execute(
+        text(
+            """
+            SELECT
+                id,
+                origin_zone_id,
+                destination_zone_id,
+                origin_name,
+                destination_name,
+                passenger_count,
+                average_distance,
+                ST_AsGeoJSON(geom)::json AS geometry,
+                ST_X(ST_StartPoint(geom)) AS ox,
+                ST_Y(ST_StartPoint(geom)) AS oy,
+                ST_X(ST_EndPoint(geom)) AS dx,
+                ST_Y(ST_EndPoint(geom)) AS dy
+            FROM v_od_desire_lines
+            WHERE passenger_count >= :k
+            ORDER BY passenger_count DESC
+            """
+        ),
+        {"k": K_ANONYMITY_MIN},
+    ).fetchall()
+
+    inbound: dict[int, int] = {}
+    outbound: dict[int, int] = {}
+    for f in flow_rows:
+        inbound[int(f.destination_zone_id)] = inbound.get(
+            int(f.destination_zone_id), 0
+        ) + int(f.passenger_count)
+        outbound[int(f.origin_zone_id)] = outbound.get(
+            int(f.origin_zone_id), 0
+        ) + int(f.passenger_count)
+    inbound_p75 = _percentile([float(v) for v in inbound.values()] or [0.0], 0.75)
+
+    zone_by_id = {}
+    dorm_ids: list[int] = []
+    emp_ids: list[int] = []
+    for r, pop, jobs, classif in classified:
+        zid = int(r.id)
+        zone_by_id[zid] = {
+            "row": r,
+            "lon": float(r.lon) if r.lon is not None else 0.0,
+            "lat": float(r.lat) if r.lat is not None else 0.0,
+            "pop": pop,
+            "jobs": jobs,
+            "classif": classif,
+        }
+        if classif["label"] == "dormitory":
+            dorm_ids.append(zid)
+        elif classif["label"] == "employment":
+            emp_ids.append(zid)
+
+    conv_features = []
+    for zid, info in zone_by_id.items():
+        inn = inbound.get(zid, 0)
+        if inn >= inbound_p75 and inn > 0:
+            conv_features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [info["lon"], info["lat"]],
+                    },
+                    "properties": {
+                        "id": zid,
+                        "name": info["row"].name,
+                        "key_type": "convergence",
+                        "label_fr": "Nœud de convergence",
+                        "inbound": inn,
+                        "lon": info["lon"],
+                        "lat": info["lat"],
+                    },
+                }
+            )
+    counts["convergence"] = len(conv_features)
+
+    bus_counts = _bus_stop_counts(db)
+    demand_list = [
+        float(info["pop"] + outbound.get(zid, 0)) for zid, info in zone_by_id.items()
+    ]
+    demand_med = _percentile(demand_list, 0.5) if demand_list else 0
+    bus_med = _percentile([float(v) for v in bus_counts.values()], 0.5) if bus_counts else 0
+    desert_features = []
+    for zid, info in zone_by_id.items():
+        demand = info["pop"] + outbound.get(zid, 0)
+        stops = bus_counts.get(zid, 0)
+        if demand >= demand_med and ((not bus_counts) or stops <= bus_med):
+            desert_features.append(
+                {
+                    "type": "Feature",
+                    "geometry": info["row"].geometry,
+                    "properties": {
+                        "id": zid,
+                        "name": info["row"].name,
+                        "key_type": "desert",
+                        "label_fr": "Désert de mobilité",
+                        "demand_proxy": demand,
+                        "bus_stops": stops,
+                        "lon": info["lon"],
+                        "lat": info["lat"],
+                    },
+                }
+            )
+    counts["deserts"] = len(desert_features)
+
+    long_flows = [
+        f
+        for f in flow_rows
+        if f.average_distance is not None and float(f.average_distance) >= 5.0
+    ]
+    bins: dict[int, list] = {}
+    for f in long_flows:
+        az = _azimuth_deg(float(f.ox), float(f.oy), float(f.dx), float(f.dy))
+        bucket = int(az // 30) * 30
+        bins.setdefault(bucket, []).append(f)
+    carpool_features = []
+    for bucket, group in bins.items():
+        if len(group) < 2:
+            continue
+        for f in group:
+            carpool_features.append(
+                {
+                    "type": "Feature",
+                    "geometry": f.geometry,
+                    "properties": {
+                        "id": f.id,
+                        "origin_name": f.origin_name,
+                        "destination_name": f.destination_name,
+                        "origin_zone_id": int(f.origin_zone_id),
+                        "destination_zone_id": int(f.destination_zone_id),
+                        "passenger_count": int(f.passenger_count),
+                        "average_distance_km": float(f.average_distance),
+                        "azimuth_bin": bucket,
+                        "key_type": "carpool",
+                        "label_fr": "Mutualisation / covoiturage potentiel",
+                    },
+                }
+            )
+    counts["carpool"] = len(carpool_features)
+
+    pair_features = []
+    for f in flow_rows:
+        if int(f.origin_zone_id) in dorm_ids and int(f.destination_zone_id) in emp_ids:
+            pair_features.append(
+                {
+                    "type": "Feature",
+                    "geometry": f.geometry,
+                    "properties": {
+                        "id": f.id,
+                        "origin_name": f.origin_name,
+                        "destination_name": f.destination_name,
+                        "origin_zone_id": int(f.origin_zone_id),
+                        "destination_zone_id": int(f.destination_zone_id),
+                        "passenger_count": int(f.passenger_count),
+                        "key_type": "unbalanced_pair",
+                        "label_fr": "Couple résidentiel-emploi déséquilibré",
+                    },
+                }
+            )
+    pair_features = pair_features[: max(corridor_top_n * 2, 8)]
+    counts["unbalanced_pairs"] = len(pair_features)
+
     rules = {
         "dormitory": "population >= 0.9*médiane ET part_emplois <= 0.38",
         "employment": "emplois >= médiane ET part_emplois >= 0.45",
         "balanced": "sinon",
         "corridor": f"top {corridor_top_n} flux OD par volume",
         "clustering": "K-means centroïdes lon/lat (minmax), seed=42",
+        "convergence": "volume entrant >= 75e percentile",
+        "desert": "demande (pop+sorties) >= médiane ET arrêts TC <= médiane",
+        "carpool": "flux >= 5 km groupés par azimut 30°",
+        "unbalanced_pair": "flux d'une zone dortoir vers un pôle emploi",
         "pop_median": pop_med,
         "jobs_median": jobs_med,
     }
@@ -335,6 +547,13 @@ def get_keypoints(db: Session, corridor_top_n: int = 5) -> dict:
     return {
         "zones": {"type": "FeatureCollection", "features": zone_features},
         "corridors": {"type": "FeatureCollection", "features": corridor_features},
+        "convergence": {"type": "FeatureCollection", "features": conv_features},
+        "deserts": {"type": "FeatureCollection", "features": desert_features},
+        "carpool": {"type": "FeatureCollection", "features": carpool_features},
+        "unbalanced_pairs": {
+            "type": "FeatureCollection",
+            "features": pair_features,
+        },
         "counts": counts,
         "clustering": clustering,
         "rules": rules,

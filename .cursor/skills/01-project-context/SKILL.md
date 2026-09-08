@@ -47,9 +47,10 @@ frontend/src/
 - `GET /api/search?q=`
 - `GET /api/route` (pgRouting, sous-graphe bbox)
 - `GET /api/zones/bounds`
-- `GET /api/od/zones|flows|summary`
-- `GET /api/keypoints` (labels + K-means)
-- `GET /api/emploi-habitat`
+- `GET /api/od/zones|flows|summary|matrix|heatmap|meta`
+- `GET /api/keypoints` (labels + K-means + déserts/convergence)
+- `GET /api/emploi-habitat` (+ diagnostic, satellites, telework)
+- `GET /api/recommendations` · `GET|POST /api/simulate` · `GET /api/kpi/dashboard`
 - `GET|POST /api/cities/*`
 
 ## Modules produit
@@ -58,10 +59,10 @@ frontend/src/
 |----|-----|-----------|
 | M1 | Cartographie des flux | Must (livré) |
 | M2 | Points clés / clustering | Must (heuristiques + K-means) |
-| M3 | Recommandations | Should (reportable — ne pas coder tant que Must clos) |
-| M4 | Simulation what-if | Should (reportable) |
-| M5 | Dashboard KPI | Must (panneau + métriques header) |
-| M6 | Emploi-habitat | Must (indice proxy) |
+| M3 | Recommandations | Must (règles métier + score d'impact) |
+| M4 | Simulation what-if | Must (scénario paramétrique) |
+| M5 | Dashboard KPI | Must (vue exécutive + panneau) |
+| M6 | Emploi-habitat | Must (indice + satellites + télétravail) |
 
 ## Conventions agent
 

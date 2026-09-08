@@ -44,23 +44,75 @@ def list_od_flows(
         description=f"Seuil minimal de volume (plancher k-anonymité = {K_ANONYMITY_MIN})",
     ),
     limit: int = Query(300, ge=1, le=1000),
+    hour: int | None = Query(None, ge=0, le=23),
+    weekday: int | None = Query(None, ge=1, le=7),
+    mode: str | None = Query(None, description="all|car|bus|walk|bike"),
     db: Session = Depends(get_db),
 ):
     logger.info(
-        "access GET /api/od/flows min_passengers=%s limit=%s",
+        "access GET /api/od/flows min_passengers=%s limit=%s hour=%s weekday=%s mode=%s",
         min_passengers,
         limit,
+        hour,
+        weekday,
+        mode,
     )
     try:
         data = od_service.get_od_desire_lines_geojson(
             db,
             min_passengers=min_passengers,
             limit=limit,
+            hour=hour,
+            weekday=weekday,
+            mode=mode,
         )
         logger.info("od_flows feature_count=%s", len(data.get("features", [])))
         return data
     except ProgrammingError as exc:
         raise _missing_data(exc) from exc
+
+
+@router.get("/matrix")
+def od_matrix(
+    min_passengers: int = Query(OD_MIN_PASSENGERS_DEFAULT, ge=K_ANONYMITY_MIN),
+    hour: int | None = Query(None, ge=0, le=23),
+    weekday: int | None = Query(None, ge=1, le=7),
+    mode: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    logger.info("access GET /api/od/matrix")
+    try:
+        return od_service.get_od_matrix(
+            db,
+            hour=hour,
+            weekday=weekday,
+            mode=mode,
+            min_passengers=min_passengers,
+        )
+    except ProgrammingError as exc:
+        raise _missing_data(exc) from exc
+
+
+@router.get("/heatmap")
+def od_heatmap(
+    kind: str = Query("origin", description="origin|destination|activity"),
+    hour: int | None = Query(None, ge=0, le=23),
+    weekday: int | None = Query(None, ge=1, le=7),
+    mode: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    logger.info("access GET /api/od/heatmap kind=%s", kind)
+    try:
+        return od_service.get_od_heatmap(
+            db, kind=kind, hour=hour, weekday=weekday, mode=mode
+        )
+    except ProgrammingError as exc:
+        raise _missing_data(exc) from exc
+
+
+@router.get("/meta")
+def od_meta():
+    return od_service.get_od_meta()
 
 
 @router.get("/summary")

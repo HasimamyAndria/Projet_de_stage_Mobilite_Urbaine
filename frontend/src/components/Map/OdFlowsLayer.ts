@@ -1,6 +1,7 @@
 import maplibregl from "maplibre-gl";
 import api from "../../services/api";
 import { OD_COLOR_STOPS, arcLineString, lineEndpoints } from "./geoArc";
+import type { OdFilters } from "../../types";
 
 const SOURCE_ID = "od-flows";
 const NODES_SOURCE = "od-nodes";
@@ -17,7 +18,11 @@ type OdFeature = {
 type OdCollection = {
   type: "FeatureCollection";
   features: OdFeature[];
+  profiles?: { hourly?: number[] };
 };
+
+let cachedDaily: OdCollection | null = null;
+let cachedHourly: number[] | null = null;
 
 function toArcedCollection(data: OdCollection): {
   lines: OdCollection;
@@ -69,28 +74,35 @@ function toArcedCollection(data: OdCollection): {
   };
 }
 
-/** Desire lines courbes + nœuds — rendu type maquette « Carte interactive ». */
-export async function loadOdFlows(
-  map: maplibregl.Map,
-  minPassengers = 50
-) {
-  const response = await api.get("/api/od/flows", {
-    params: {
-      min_passengers: minPassengers,
-      limit: 80,
-    },
-  });
+function scaleByHour(data: OdCollection, hour: number | null): OdCollection {
+  if (hour == null || !cachedHourly) return data;
+  const share = cachedHourly[hour] ?? 1 / 24;
+  const factor = share * 24;
+  return {
+    ...data,
+    features: data.features.map((f) => {
+      const daily = Number(
+        f.properties?.volume_daily ?? f.properties?.passenger_count ?? 0
+      );
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          passenger_count: Math.max(1, Math.round(daily * factor)),
+          hour,
+        },
+      };
+    }),
+  };
+}
 
-  const raw = response.data as OdCollection;
-  const { lines, nodes } = toArcedCollection(raw);
-  console.log("Flux OD (arcs) :", lines.features.length);
-
+function paintFlows(map: maplibregl.Map, data: OdCollection) {
+  const { lines, nodes } = toArcedCollection(data);
   const lineSource = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
   if (lineSource) {
     lineSource.setData(lines as never);
   } else {
     map.addSource(SOURCE_ID, { type: "geojson", data: lines as never });
-
     map.addLayer({
       id: HALO_ID,
       type: "line",
@@ -115,7 +127,6 @@ export async function loadOdFlows(
         "line-blur": 0.8,
       },
     });
-
     map.addLayer({
       id: LAYER_ID,
       type: "line",
@@ -161,6 +172,34 @@ export async function loadOdFlows(
       },
     });
   }
+}
+
+export function applyOdHour(map: maplibregl.Map, hour: number | null) {
+  if (!cachedDaily) return;
+  paintFlows(map, scaleByHour(cachedDaily, hour));
+}
+
+export async function loadOdFlows(
+  map: maplibregl.Map,
+  filters: OdFilters | number = 50
+) {
+  const f: OdFilters =
+    typeof filters === "number"
+      ? { hour: null, weekday: null, mode: "all", minPassengers: filters }
+      : filters;
+
+  const params: Record<string, string | number> = {
+    min_passengers: f.minPassengers,
+    limit: 80,
+  };
+  if (f.weekday != null) params.weekday = f.weekday;
+  if (f.mode && f.mode !== "all") params.mode = f.mode;
+
+  const response = await api.get("/api/od/flows", { params });
+  const raw = response.data as OdCollection;
+  cachedDaily = raw;
+  cachedHourly = raw.profiles?.hourly ?? null;
+  paintFlows(map, scaleByHour(raw, f.hour));
 }
 
 export async function loadMobilityZones(map: maplibregl.Map) {
@@ -221,4 +260,13 @@ export function fitMapToBBox(
     ],
     { padding: 48, maxZoom: 13, duration }
   );
+}
+
+export function fitMapToOdZones(map: maplibregl.Map) {
+  fitMapToBBox(map, {
+    west: 47.45,
+    south: -18.95,
+    east: 47.565,
+    north: -18.82,
+  });
 }

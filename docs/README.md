@@ -13,6 +13,7 @@ Les skills Cursor écrivent ici les livrables de phase :
 | `qa-rapport.md` | 10-qa |
 | `runbook.md` | 11-devops |
 | `securite-rgpd.md` | 12-sécu |
+| `etat-de-l-art.md` (+ `.docx`) | Mémoire M2 — veille techno 20 axes |
 | `soutenance/` | 13-soutenance |
 
 Créés au fur et à mesure de l'exécution des prompts (voir `.cursor/skills/00-pipeline-stage/PROMPTS.md`).
