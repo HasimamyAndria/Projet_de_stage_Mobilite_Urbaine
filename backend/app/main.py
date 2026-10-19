@@ -12,6 +12,14 @@ from app.routers import cities
 from app.routers import recommendations
 from app.routers import simulation
 from app.routers import kpi
+from app.routers import decision_brief
+from app.routers import decision
+from app.routers import diary
+from app.routers import cohort
+from app.routers import lens
+from app.routers import catalog
+from app.routers import intelligence
+from app.routers import spec_process
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,13 +56,23 @@ CORS_ORIGINS = [
     for o in os.getenv("CORS_ORIGINS", _default_origins).split(",")
     if o.strip() and o.strip() != "*"
 ]
+# Vite passe souvent à 5174 si 5173 est déjà pris
+if not IS_PROD:
+    for extra in (
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ):
+        if extra not in CORS_ORIGINS:
+            CORS_ORIGINS.append(extra)
 logger.info("APP_ENV=%s CORS_ORIGINS=%s", APP_ENV, CORS_ORIGINS)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Accept", "Content-Type"],
 )
 
@@ -67,6 +85,14 @@ app.include_router(cities.router)
 app.include_router(recommendations.router)
 app.include_router(simulation.router)
 app.include_router(kpi.router)
+app.include_router(decision_brief.router)
+app.include_router(decision.router)
+app.include_router(diary.router)
+app.include_router(cohort.router)
+app.include_router(lens.router)
+app.include_router(catalog.router)
+app.include_router(intelligence.router)
+app.include_router(spec_process.router)
 
 
 @app.get("/health")

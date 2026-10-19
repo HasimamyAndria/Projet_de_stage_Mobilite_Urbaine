@@ -69,6 +69,37 @@ def fetch(path: str, timeout: float = 30) -> tuple[int, dict | list | str]:
         return 0, str(exc)
 
 
+def fetch_post(path: str, payload: dict, timeout: float = 60) -> tuple[int, dict | list | str]:
+    url = f"{BASE}{path}"
+    print(f"\n>>> POST {url}")
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                data = raw
+            return resp.status, data
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            data = raw
+        print(f"    HTTP {exc.code}")
+        return exc.code, data
+    except Exception as exc:  # noqa: BLE001 — smoke : tout logger
+        print(f"    ERREUR reseau/timeout : {exc}")
+        return 0, str(exc)
+
+
 def is_fc(data) -> bool:
     return isinstance(data, dict) and data.get("type") == "FeatureCollection"
 
@@ -283,6 +314,88 @@ def main() -> int:
             "emploi-habitat scores [0,1]",
             in_range and len(scores) > 0,
             f"n_scored={len(scores)} min={min(scores)} max={max(scores)}",
+        )
+
+    dossier = {
+        "anchor_zone_id": None,
+        "organization": "Direction des finances",
+        "sector": "admin",
+        "headcount": 800,
+        "share_must_be_present": 0.35,
+        "telework_rate_max": 0.40,
+        "telework_pattern": "hybrid_1_2",
+        "max_annexes": 3,
+        "peak_hours": [7, 8, 9],
+    }
+    code, data = fetch_post("/api/decision-brief", dossier)
+    ids = [s.get("id") for s in (data.get("scenarios") or [])] if isinstance(data, dict) else []
+    rec = (data.get("recommendation") or {}) if isinstance(data, dict) else {}
+    params = (data.get("parameters_used") or {}) if isinstance(data, dict) else {}
+    brief_ok = (
+        code == 200
+        and isinstance(data, dict)
+        and (
+            data.get("ok") is False
+            or (
+                ids == ["reference", "annexes", "telework", "mix"]
+                and isinstance(data.get("geojson"), dict)
+                and data["geojson"].get("type") == "FeatureCollection"
+                and isinstance(data.get("note_decideur"), str)
+                and len(data.get("note_decideur") or "") > 200
+            )
+        )
+    )
+    constrained = True
+    if isinstance(data, dict) and data.get("ok"):
+        constrained = (
+            float(params.get("telework_rate") or 0) <= 0.40 + 1e-9
+            and int(params.get("max_annexes") or 0) <= 3
+            and len(data.get("annexes") or []) <= 3
+            and rec.get("scenario_id") in {"annexes", "telework", "mix"}
+        )
+        blob = json.dumps(data)
+        leaked = {k for k in ("user_id", "person_id", "trip_id", "email", "phone") if f'"{k}"' in blob}
+        check("decision-brief anonymisation", len(leaked) == 0, f"leaked={sorted(leaked)}")
+    check(
+        "decision-brief (dossier finance)",
+        brief_ok and constrained,
+        f"code={code} ok={data.get('ok') if isinstance(data, dict) else None} "
+        f"ids={ids} rec={rec.get('scenario_id') if isinstance(rec, dict) else None}",
+    )
+    if isinstance(data, dict) and data.get("ok") and params.get("telework_api"):
+        tw = params["telework_api"]
+        code_tw, data_tw = fetch(
+            f"/api/emploi-habitat/telework?rate={tw['rate']}&pattern={tw['pattern']}"
+        )
+        tele_scen = next((s for s in data.get("scenarios") or [] if s.get("id") == "telework"), None)
+        tw_ok = (
+            code_tw == 200
+            and tele_scen is not None
+            and abs(float(tele_scen["km"]) - float((data_tw.get("scenario") or {}).get("km") or 0)) < 0.15
+            and abs(float(tele_scen["co2_t"]) - float((data_tw.get("scenario") or {}).get("co2_t") or 0)) < 0.05
+        )
+        check(
+            "decision-brief coherent telework API",
+            tw_ok,
+            f"brief_km={tele_scen.get('km') if tele_scen else None} "
+            f"api_km={(data_tw.get('scenario') or {}).get('km') if isinstance(data_tw, dict) else None}",
+        )
+        sim = params.get("simulate_annex") or {}
+        code_sim, data_sim = fetch(
+            f"/api/simulate?action=add_satellite_office&zone_id={sim.get('zone_id')}"
+            f"&intensity={sim.get('intensity')}"
+        )
+        annex_scen = next((s for s in data.get("scenarios") or [] if s.get("id") == "annexes"), None)
+        sim_ok2 = (
+            code_sim == 200
+            and annex_scen is not None
+            and abs(float(annex_scen["km"]) - float((data_sim.get("scenario") or {}).get("km") or 0)) < 0.15
+        )
+        check(
+            "decision-brief coherent simulate annexes",
+            sim_ok2,
+            f"brief_km={annex_scen.get('km') if annex_scen else None} "
+            f"api_km={(data_sim.get('scenario') or {}).get('km') if isinstance(data_sim, dict) else None}",
         )
 
     # --- Multi-villes (US-100) ---

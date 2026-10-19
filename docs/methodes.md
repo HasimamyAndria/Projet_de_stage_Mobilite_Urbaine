@@ -94,3 +94,62 @@ Propriétés zone : `label`, `cluster_id`, `cluster_label`
 ## M1 — Desire lines (rappel)
 
 Trait droit centroïde→centroïde. Ce n’est **pas** un itinéraire routier (`/api/route` + pgRouting).
+
+## Catalogue simulé (organisations)
+
+Couche distincte de la matrice gravitaire OSM (`mobility_flows`).
+
+Source : groupes d'employés simulés (`organizations.py`), rattachés aux quartiers de `territory.py`. Une enquête réelle remplace ces tables sans changer les endpoints.
+
+Vitesse supposée : **18 km/h**. Distance : orthodromie × 1,35.
+
+| Indice | Formule |
+|--------|---------|
+| Génération | actifs résidant dans le cadre / navetteurs de la ville |
+| Attractivité | emplois du cadre / navetteurs de la ville |
+| Emploi-habitat | emplois / actifs résidents |
+| Équilibre | `1 - \|emplois - actifs\| / (emplois + actifs)` |
+| Déséquilibre | emplois − actifs résidents |
+| Concentration | part de la destination principale |
+| Dispersion | `1 - somme des parts²` |
+| Mode individuel | part taxi ou voiture |
+| Distance moyenne | somme(km × effectif) / effectif |
+| Temps moyen | distance / 18 km/h |
+| Pression | `100 × (0,35 sortie + 0,35 min(km/25, 1) + 0,30 mode individuel)` |
+
+Profils : K-means, k = 2 à 4, graine 42, k retenu par silhouette maximale. Les employés d'un même groupe partagent les variables, donc le calcul porte sur les groupes.
+
+Chaque fiche d'indice renvoyée par `GET /api/mobility/indicators` contient définition, formule, unité, source, méthode, interprétation et limite. Les scénarios `POST /api/simulation` sont des estimations simulées : ils ne décident pas.
+
+## Analyse des profils (`GET /api/mobility/analysis`)
+
+Même catalogue simulé. Un point = un groupe d'employés (origine, destination, distance, fréquence, mode, secteur). L'organisation est lue à part.
+
+Trois méthodes sont calculées sur les vecteurs mis à l'échelle min-max :
+
+| Méthode | Réglage |
+|---------|---------|
+| K-means | k de 2 à 4, graine 42, k = silhouette maximale |
+| Hiérarchique | lien de Ward, même choix de k |
+| DBSCAN | eps 0,28 / 0,40 / 0,55 / 0,75 et minPts 2 ou 3, meilleur couple retenu |
+
+Est retenue la méthode éligible (2 à 4 groupes, au plus 35 % de bruit, silhouette calculable) dont la silhouette est la plus haute. Si K-means est à 0,02 ou moins du meilleur score, il est gardé : les variables sont numériques et les points sont déjà agrégés. DBSCAN sert surtout à constater qu'il n'y a pas de nuage GPS.
+
+Les trois profils métier (périphérie → centre, résidence proche de l'emploi, plusieurs quartiers → même pôle) sont une lecture des groupes, pas la sortie brute de l'algorithme. Le troisième profil est le plus utile aux organisations.
+
+Chaque scénario (bureau satellite, tiers-lieu, télétravail, transport collectif, parking relais, piste cyclable, horaires) indique pourquoi, sur quelles données, combien de personnes, l'impact estimé et les limites. Le libellé est « scénario recommandé » ou « scénario potentiellement pertinent ». Le jeu d'exemple Ivato 30 / Talatamaty 25 / Ambohibao 20 est identifié comme simulé.
+
+## Démarche du chapitre 6 — optimisation des sites
+
+Endpoint : `GET /api/spec/cases` puis `GET /api/spec/cases/{entreprise|collectivite|multi}`.
+
+Les trois cas suivent la structure de la spécification §6.5, sur Antananarivo et les groupes simulés (au moins 20 personnes). Les effectifs d'illustration du PDF (3 000 salariés, 2 800 trajets, 500 postes) ne sont pas recopiés.
+
+1. Demande : domicile, siège, mode, temps, km, CO₂. Distance = orthodromie × 1,35. Vitesse selon le mode (bus 16 km/h, voiture 22 km/h).
+2. Candidats : quartiers du catalogue gardés si au moins 30 % des salariés ciblés sont à moins de 30 minutes.
+3. Choix : p-médianes glouton. Objectif = minimiser le temps aller-retour pondéré par l'effectif. Capacité hypothétique : 500 postes.
+4. Score : temps 30 %, km 25 %, CO₂ 20 % (220 jours), desserte 15 %, faisabilité 10 %. Desserte et faisabilité = rôle du quartier.
+5. Restitution : top 5 sur la carte, référence toujours affichée, hypothèses d'adoption (20–100 %) et de télétravail.
+
+La bascule d'un groupe suit un logit sur les minutes gagnées, plafonné par le taux d'adoption. Ce n'est pas un logit calibré sur une enquête, ni un programme linéaire.
+

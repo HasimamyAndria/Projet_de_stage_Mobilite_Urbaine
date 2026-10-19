@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import ProgrammingError
 
 from app.database import get_db
-from app.services.simulation import simulate, ACTIONS
+from app.services.simulation import ACTIONS, catalog, simulate
 
 router = APIRouter(prefix="/api", tags=["Simulation M4"])
 
@@ -12,9 +12,13 @@ router = APIRouter(prefix="/api", tags=["Simulation M4"])
 class SimulateBody(BaseModel):
     action: str = Field("add_tc_stop")
     zone_id: int | None = None
+    target_zone_id: int | None = None
     intensity: float = Field(0.25, ge=0.05, le=1.0)
     telework_rate: float = Field(0.15, ge=0.0, le=0.8)
     telework_pattern: str = "hybrid_1_2"
+    employee_share: float | None = Field(None, ge=0.0, le=0.6)
+    organization_key: str | None = None
+    stagger_share: float = Field(0.20, ge=0.0, le=0.5)
 
 
 def _run(db: Session, body: SimulateBody):
@@ -26,7 +30,22 @@ def _run(db: Session, body: SimulateBody):
             intensity=body.intensity,
             telework_rate=body.telework_rate,
             telework_pattern=body.telework_pattern,
+            target_zone_id=body.target_zone_id,
+            employee_share=body.employee_share,
+            organization_key=body.organization_key,
+            stagger_share=body.stagger_share,
         )
+    except ProgrammingError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Données OD/zones absentes. Detail: {exc}",
+        ) from exc
+
+
+@router.get("/simulate/catalog")
+def simulate_catalog(db: Session = Depends(get_db)):
+    try:
+        return catalog(db)
     except ProgrammingError as exc:
         raise HTTPException(
             status_code=503,
@@ -38,9 +57,13 @@ def _run(db: Session, body: SimulateBody):
 def simulate_get(
     action: str = Query("add_tc_stop"),
     zone_id: int | None = Query(None),
+    target_zone_id: int | None = Query(None),
     intensity: float = Query(0.25, ge=0.05, le=1.0),
     telework_rate: float = Query(0.15, ge=0.0, le=0.8),
     telework_pattern: str = Query("hybrid_1_2"),
+    employee_share: float | None = Query(None, ge=0.0, le=0.6),
+    organization_key: str | None = Query(None),
+    stagger_share: float = Query(0.20, ge=0.0, le=0.5),
     db: Session = Depends(get_db),
 ):
     if action not in ACTIONS:
@@ -50,9 +73,13 @@ def simulate_get(
         SimulateBody(
             action=action,
             zone_id=zone_id,
+            target_zone_id=target_zone_id,
             intensity=intensity,
             telework_rate=telework_rate,
             telework_pattern=telework_pattern,
+            employee_share=employee_share,
+            organization_key=organization_key,
+            stagger_share=stagger_share,
         ),
     )
 

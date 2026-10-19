@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import DecisionBriefPanel from "./DecisionBriefPanel";
+import type { AnnexesGeoJSON } from "./Map/SatellitesLayer";
 
 type Diagnostic = {
   eh_index_100_avg: number | null;
@@ -30,8 +32,10 @@ type SatellitePayload = {
 
 export default function EmploiHabitatPanel({
   onReloadSatellites,
+  onAnnexesGeoJSON,
 }: {
   onReloadSatellites?: () => void;
+  onAnnexesGeoJSON?: (fc: AnnexesGeoJSON | null) => void;
 }) {
   const [diag, setDiag] = useState<Diagnostic | null>(null);
   const [sats, setSats] = useState<SatellitePayload | null>(null);
@@ -42,6 +46,25 @@ export default function EmploiHabitatPanel({
   const [message, setMessage] = useState("");
   const [contribNote, setContribNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [overview, setOverview] = useState<{
+    person_count: number;
+    couples: Array<{
+      id: string;
+      title: string;
+      left: { name: string; value: number; unit: string };
+      right: { name: string; value: number; unit: string };
+      indicator: { name: string; value: number; unit: string };
+      stats: Array<{ name: string; value: number; unit: string }>;
+      reading: string;
+    }>;
+  } | null>(null);
+
+  useEffect(() => {
+    api
+      .get("/api/mobility/overview", { params: { city_id: "tana", period: "week" } })
+      .then((res) => setOverview(res.data))
+      .catch(() => setOverview(null));
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -79,6 +102,7 @@ export default function EmploiHabitatPanel({
       <aside className="kpi-panel">
         <h2>Emploi-habitat</h2>
         <p className="kpi-error">{error}</p>
+        <DecisionBriefPanel onAnnexesGeoJSON={onAnnexesGeoJSON} />
       </aside>
     );
   }
@@ -88,7 +112,9 @@ export default function EmploiHabitatPanel({
   return (
     <aside className="kpi-panel">
       <h2>Rapprochement emploi-habitat</h2>
-      <p className="kpi-subtitle">Indice 0-100 · bureaux satellites · M6</p>
+      <p className="kpi-subtitle">Indice 0-100 · bureaux annexes · dossier décideur · M6</p>
+
+      <DecisionBriefPanel onAnnexesGeoJSON={onAnnexesGeoJSON} />
 
       <section className="kpi-section">
         <h3>Indice de proximité</h3>
@@ -108,6 +134,52 @@ export default function EmploiHabitatPanel({
           ))}
         </ul>
       </section>
+
+      {overview && overview.couples.length > 0 && (
+        <section className="kpi-section">
+          <h3>Couples d&apos;indicateurs</h3>
+          <p className="kpi-muted">
+            Deux paramètres, un indicateur, des stats. Semaine type de{" "}
+            {overview.person_count} individus simulés à Antananarivo.
+          </p>
+          <div className="couple-grid">
+            {overview.couples.map((couple) => (
+              <article key={couple.id} className="couple-card">
+                <h3>{couple.title}</h3>
+                <div className="couple-pair">
+                  <div>
+                    <span>{couple.left.name}</span>
+                    <strong>
+                      {couple.left.value} {couple.left.unit}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>{couple.right.name}</span>
+                    <strong>
+                      {couple.right.value} {couple.right.unit}
+                    </strong>
+                  </div>
+                </div>
+                <p className="couple-indicator">{couple.indicator.name}</p>
+                <div className="couple-meter">
+                  <div style={{ width: `${Math.min(100, couple.indicator.value)}%` }} />
+                </div>
+                <strong className="couple-score">
+                  {couple.indicator.value} {couple.indicator.unit}
+                </strong>
+                <ul>
+                  {couple.stats.map((stat) => (
+                    <li key={stat.name}>
+                      {stat.name} : {stat.value} {stat.unit}
+                    </li>
+                  ))}
+                </ul>
+                <p className="kpi-muted">{couple.reading}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="kpi-section">
         <h3>Zones dortoirs</h3>

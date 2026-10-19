@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import type { OdFilters } from "../types";
-import { downloadJson } from "../utils/exportReport";
+import { downloadCsv, downloadJson } from "../utils/exportReport";
 
 type Cell = {
   origin_zone_id: number;
@@ -128,13 +128,31 @@ export default function OdMatrixPanel({ filters }: Props) {
         </table>
       </div>
       <p className="kpi-muted">{data.note}</p>
-      <button
-        type="button"
-        className="map-btn"
-        onClick={() => downloadJson("matrice-od.json", data)}
-      >
-        Exporter JSON
-      </button>
+      <div className="export-row">
+        <button
+          type="button"
+          className="map-btn"
+          onClick={() =>
+            downloadCsv("matrice-od.csv", [
+              ["origine", "destination", "volume"],
+              ...data.cells.map((cell) => [
+                cell.origin_name,
+                cell.destination_name,
+                String(cell.passenger_count),
+              ]),
+            ])
+          }
+        >
+          Exporter CSV
+        </button>
+        <button
+          type="button"
+          className="map-btn"
+          onClick={() => downloadJson("matrice-od.json", data)}
+        >
+          Exporter JSON
+        </button>
+      </div>
     </aside>
   );
 }

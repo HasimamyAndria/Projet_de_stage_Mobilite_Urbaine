@@ -1,11 +1,13 @@
 export type ViewId =
-  | "dashboard"
+  | "accueil"
   | "carte"
-  | "od"
+  | "dashboard"
+  | "deplacements"
   | "zones"
   | "emploi"
   | "simulation"
-  | "reco";
+  | "reco"
+  | "rapports";
 
 export type OdFilters = {
   hour: number | null;
@@ -26,11 +28,13 @@ export const NAV_ITEMS: Array<{
   label: string;
   subtitle: string;
 }> = [
-  { id: "dashboard", label: "Tableau de bord", subtitle: "KPI exécutifs · M5" },
-  { id: "carte", label: "Carte interactive", subtitle: "Flux, heatmap · M1" },
-  { id: "od", label: "Flux OD", subtitle: "Matrice filtrable · M1" },
-  { id: "zones", label: "Zones critiques", subtitle: "Points clés · M2" },
-  { id: "emploi", label: "Emploi-habitat", subtitle: "Proximité · M6" },
-  { id: "simulation", label: "Simulation", subtitle: "What-if · M4" },
-  { id: "reco", label: "Recommandations", subtitle: "Urbanisation · M3" },
+  { id: "accueil", label: "Accueil", subtitle: "Analyse de la mobilité" },
+  { id: "carte", label: "Carte & Flux OD", subtitle: "Zones et desire lines" },
+  { id: "dashboard", label: "Tableau de bord", subtitle: "Indicateurs" },
+  { id: "deplacements", label: "Déplacements", subtitle: "Journal simulé" },
+  { id: "zones", label: "Zones critiques", subtitle: "Points clés" },
+  { id: "emploi", label: "Emploi-habitat", subtitle: "Équilibre" },
+  { id: "simulation", label: "Simulation", subtitle: "Hypothèse d'aménagement" },
+  { id: "reco", label: "Recommandations IA", subtitle: "Actions proposées" },
+  { id: "rapports", label: "Rapports", subtitle: "Exports" },
 ];

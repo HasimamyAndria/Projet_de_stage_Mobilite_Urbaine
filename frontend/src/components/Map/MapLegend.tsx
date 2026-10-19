@@ -5,6 +5,7 @@ type Props = {
 };
 
 export default function MapLegend({ visibility }: Props) {
+  const showTerritory = visibility.territory;
   const showOd = visibility.odFlows;
   const showHeat = visibility.heatmap;
   const showM6 = visibility.emploiHabitat;
@@ -13,6 +14,7 @@ export default function MapLegend({ visibility }: Props) {
   const showRoute = visibility.route;
 
   if (
+    !showTerritory &&
     !showOd &&
     !showHeat &&
     !showM6 &&
@@ -25,6 +27,42 @@ export default function MapLegend({ visibility }: Props) {
 
   return (
     <div className="map-legend-card">
+      {showTerritory && (
+        <div className="legend-block">
+          <span className="legend-title">Légende</span>
+          <div className="legend-grid">
+            <div className="legend-swatch-row">
+              <span className="legend-dot" style={{ background: "#0f766e" }} />
+              Origine
+            </div>
+            <div className="legend-swatch-row">
+              <span className="legend-dot" style={{ background: "#c2410c" }} />
+              Destination
+            </div>
+            <div className="legend-swatch-row">
+              <span className="legend-flow" />
+              Flux
+            </div>
+            <div className="legend-swatch-row">
+              <span className="legend-dot legend-node" />
+              Nœud
+            </div>
+            <div className="legend-swatch-row">
+              <span className="legend-admin" />
+              Arrondissement
+            </div>
+            <div className="legend-swatch-row">
+              <span className="legend-ring" />
+              Zone critique
+            </div>
+            <div className="legend-swatch-row">
+              <span className="legend-dot legend-desert" />
+              Désert
+            </div>
+          </div>
+          <p className="legend-note">Trait vert vers orange. Plus il est épais, plus le volume est fort.</p>
+        </div>
+      )}
       {showOd && (
         <div className="legend-block">
           <span className="legend-title">Flux OD</span>

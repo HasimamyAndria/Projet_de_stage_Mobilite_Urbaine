@@ -1,24 +1,18 @@
 import maplibregl from "maplibre-gl";
 import api from "../../services/api";
+import { addLayerUnderLabels } from "./basemap";
 
-export async function loadBuildings(map: maplibregl.Map) {
-
+export async function loadBuildings(map: maplibregl.Map, stale?: () => boolean) {
     const bounds = map.getBounds();
-
     const response = await api.get("/api/buildings", {
-
         params: {
-
             minLon: bounds.getWest(),
             minLat: bounds.getSouth(),
             maxLon: bounds.getEast(),
             maxLat: bounds.getNorth()
-
         }
-
     });
-
-    console.log("Bâtiments :", response.data.features.length);
+    if (stale?.() || !map.getStyle()) return;
 
     const source = map.getSource("buildings");
 
@@ -36,17 +30,16 @@ export async function loadBuildings(map: maplibregl.Map) {
             data: response.data
         });
 
-        map.addLayer({
-
+        addLayerUnderLabels(map, {
             id: "buildings",
             type: "fill",
             source: "buildings",
+            layout: { visibility: "none" },
             paint: {
-                "fill-color": "#342e86",
-                "fill-opacity": 0.6,
-                "fill-outline-color": "#1b1919"
-            }
-
+                "fill-color": "#64748b",
+                "fill-opacity": 0.35,
+                "fill-outline-color": "#334155",
+            },
         });
 
     }

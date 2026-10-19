@@ -1,20 +1,20 @@
 /* Shell app carto — plein écran (écrase le template Vite) */
 :root {
-  --ms-bg: #0b1220;
-  --ms-panel: #121a2b;
-  --ms-panel-2: #182235;
-  --ms-border: #2a3a52;
-  --ms-ink: #e8eef7;
-  --ms-muted: #93a4bd;
-  --ms-teal: #2dd4bf;
+  --ms-bg: #f3f6fb;
+  --ms-panel: #ffffff;
+  --ms-panel-2: #f8fafc;
+  --ms-border: #e2e8f0;
+  --ms-ink: #0f172a;
+  --ms-muted: #64748b;
+  --ms-teal: #0f766e;
   --ms-teal-dim: #0f766e;
-  --ms-orange: #fb923c;
-  --ms-red: #f87171;
-  --ms-blue: #38bdf8;
-  --ms-nav-w: 220px;
+  --ms-orange: #ea580c;
+  --ms-red: #dc2626;
+  --ms-blue: #2563eb;
+  --ms-nav-w: 248px;
   --ms-side-w: 340px;
   --ms-font: "Segoe UI", "Candara", "Trebuchet MS", system-ui, sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * {

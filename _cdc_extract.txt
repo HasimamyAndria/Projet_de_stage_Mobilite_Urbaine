@@ -1,0 +1,195 @@
+
+--- PAGE 1 ---
+CAHIER DES CHARGES FONCTIONNEL ET TECHNIQUE 
+ 
+Projet de stage Master 2 
+THEME : Application d'optimisation des flux de mobilité urbaine métropolitaine  
+ENTREPRISE D’ACCUEIL  : MD Technology 
+ENCADREUR PROFESSIONNEL 
+Nom de l’encadreur professionnel : Rakotomalala Yvon Jocelin 
+Contact de l’encadreur professionnel : +33630628549 
+Email de l’encadreur professionnel : doda.rakotomalala@mdtechnology.fr  
+ 
+PÉRIODE DE STAGE  
+Du 1 Juillet 2026 au  29 Octobre 2026 
+Durée : 4 mois  
+Introduction 
+Le présent cahier des charges définit les besoins fonctionnels, techniques et 
+organisationnels du projet de développement d'une plateforme d'aide à la décision destinée 
+aux collectivités territoriales et aux acteurs de l'aménagement urbain. Le document servira 
+de référence tout au long du cycle de vie du projet et permettra d'encadrer les travaux de 
+conception, de développement et de validation. 
+1. Contexte du projet 
+Les grandes villes connaissent une croissance démographique importante qui entraîne une 
+augmentation des déplacements quotidiens. 
+Les infrastructures routières et les transports collectifs peinent à absorber ces flux, ce qui 
+provoque des congestions, 
+une augmentation des émissions de CO₂ et une dégradation de la qualité de vie. Les outils 
+d'aide à la décision existants 
+s'appuient souvent sur des études ponctuelles et des données partielles. Le projet vise donc 
+à exploiter les données de mobilité, 
+les données urbaines et les techniques d'analyse géospatiale afin d'orienter les politiques 
+publiques et les décisions 
+d'aménagement du territoire. 
+
+--- PAGE 2 ---
+2. Présentation générale du projet  
+L'objectif est de développer une plateforme web intelligente capable de collecter, agréger et 
+analyser des données de mobilité 
+domicile-travail. L'application permettra de cartographier les flux, d'identifier les points 
+critiques, de proposer des 
+recommandations d'urbanisation, de simuler des scénarios et de mesurer leurs impacts sur 
+les déplacements, l'environnement et 
+l'équilibre entre les lieux d'habitation et les pôles d'emploi. 
+3. Objectifs du projet  
+Objectif général : 
+Concevoir une plateforme décisionnelle d'optimisation des flux de mobilité urbaine. 
+Objectifs spécifiques : 
+- Réduire les temps de trajet. 
+- Favoriser le rapprochement emploi-habitat. 
+- Identifier les zones prioritaires d'urbanisation. 
+- Simuler différents scénarios d'aménagement. 
+- Fournir des indicateurs stratégiques aux décideurs. 
+4. Périmètre fonctionnel 
+Le système prend en charge les déplacements domicile-travail à l'échelle métropolitaine. 
+Les modes de transport considérés sont : voiture individuelle, covoiturage, transports en 
+commun, 
+vélo, marche et déplacements multimodaux. Les trajets de loisirs, la logistique urbaine et le 
+pilotage 
+temps réel du trafic sont exclus du périmètre de la première version. 
+5. Parties prenantes 
+Les principaux utilisateurs sont : 
+• Urbanistes et chargés de mobilité. 
+• Élus et décideurs territoriaux. 
+• Développeurs économiques. 
+• Entreprises et directions des ressources humaines. 
+• Bureaux d'études et opérateurs de transport. 
+• Citoyens et associations. 
+6. Analyse des besoins  
+Le système devra fournir une représentation claire des déplacements et permettre de tester 
+des hypothèses d'aménagement. 
+Les utilisateurs souhaitent disposer d'une interface intuitive, de cartes interactives, d'outils 
+de simulation et d'un système 
+d'export des rapports. Les besoins non fonctionnels portent sur les performances, la 
+disponibilité, la sécurité et la conformité RGPD. 
+
+--- PAGE 3 ---
+7. Fonctionnalités détaillées  
+Module 1 : Cartographie des flux 
+- Carte interactive multicouches. 
+- Matrices origine-destination. 
+- Animation temporelle des flux. 
+Module 2 : Détection des points clés 
+- Identification des nœuds critiques. 
+- Détection des corridors saturés. 
+- Mise en évidence des déserts de mobilité. 
+Module 3 : Recommandations d'urbanisation 
+- Implantation d'arrêts de transport collectif. 
+- Proposition de parkings relais. 
+- Création de pistes cyclables. 
+- Recommandation de bureaux satellites et tiers-lieux. 
+Module 4 : Simulation What-if 
+- Ajout ou suppression d'infrastructures. 
+- Comparaison de scénarios. 
+- Évaluation de l'impact sur les temps de trajet et le CO₂. 
+Module 5 : Tableau de bord 
+- Visualisation des indicateurs clés. 
+- Rapports PDF et présentations. 
+Module 6 : Rapprochement emploi-habitat 
+- Calcul d'un indice de proximité. 
+- Proposition d'implantation de bureaux annexes. 
+- Évaluation des scénarios de télétravail. 
+8. Sources de données  
+Les données utilisées proviendront des enquêtes de mobilité, des bases statistiques 
+publiques, 
+des réseaux de transport, des données géographiques OpenStreetMap, des données socio-
+économiques 
+et, lorsque cela est possible, de données anonymisées issues d'opérateurs partenaires. 
+9. Exigences fonctionnelles 
+Le système devra permettre : 
+- l'authentification et la gestion des profils ; 
+- la consultation et le filtrage des cartes ; 
+- le lancement de simulations ; 
+- la comparaison de plusieurs scénarios ; 
+- l'export de résultats et de rapports. 
+
+--- PAGE 4 ---
+10. Exigences non fonctionnelles  
+Performance : temps de réponse inférieur à 500 ms pour les cartes agrégées. 
+Disponibilité : 99,5 % en heures ouvrées. 
+Sécurité : chiffrement des données et gestion des accès. 
+Évolutivité : architecture modulaire. 
+Interopérabilité : API REST et compatibilité SIG. 
+11. Architecture technique  
+Le système sera construit autour d'une architecture multicouche : 
+Frontend : React  
+Backend : FastAPI (Python). 
+Base de données : PostgreSQL/PostGIS. 
+Traitement analytique : Apache Spark et GeoPandas. 
+Machine Learning : scikit-learn et XGBoost. 
+Conteneurisation : Docker et Kubernetes. 
+12. Contraintes 
+Le projet devra respecter les exigences réglementaires en matière de protection des 
+données personnelles. 
+Les informations manipulées seront agrégées et anonymisées afin d'éviter toute 
+réidentification des individus. 
+Le système devra être compatible avec les standards des systèmes d'information 
+géographiques. 
+13. Livrables 
+Les livrables attendus sont : 
+- Une application web fonctionnelle. 
+- Une API documentée. 
+- Une base de données géospatiale. 
+- Les rapports techniques et utilisateurs. 
+- Les documents de tests et de validation. 
+14. Planification prévisionnelle  
+Phase 1 : Analyse des besoins et cadrage. 
+Phase 2 : Conception fonctionnelle et technique. 
+Phase 3 : Développement des modules principaux. 
+Phase 4 : Intégration des algorithmes d'analyse et de simulation. 
+Phase 5 : Tests, validation et déploiement. 
+Phase 6 : Rédaction du mémoire et préparation de la soutenance. 
+15. Gestion des risques  
+Les principaux risques concernent la disponibilité des données, la conformité RGPD, 
+les biais statistiques, les performances des modèles prédictifs et l'acceptation du projet 
+
+--- PAGE 5 ---
+par les utilisateurs. Des mesures de mitigation seront mises en place : anonymisation, 
+croisement de sources, validation des modèles et stratégie de conduite du changement. 
+16. Critères de réussite  
+Le projet sera considéré comme réussi si l'application permet de produire des 
+recommandations pertinentes, 
+de simuler différents scénarios d'aménagement et d'aider les décideurs à réduire les temps 
+de trajet et les impacts environnementaux. 
+17. Conclusion 
+Cette plateforme constitue un outil innovant d'aide à la décision pour les collectivités 
+territoriales. 
+En associant les données de mobilité, les systèmes d'information géographique et les 
+techniques d'intelligence artificielle, 
+elle contribuera à une meilleure planification urbaine et à une amélioration durable de la 
+qualité de vie des citoyens. 
+Annexe A – Tableau synthétique des acteurs  
+Acteur Rôle Attentes 
+Urbaniste Analyse Visualiser les flux et 
+préparer les projets 
+Élu Décision Comparer les scénarios 
+Entreprise Optimisation Étudier les bureaux 
+satellites 
+Citoyen Consultation Suivre les projets urbains 
+Annexe B – Technologies recommandées  
+Le projet pourra utiliser PostgreSQL/PostGIS pour le stockage géospatial, FastAPI pour les 
+API métier, React ou Angular pour l'interface utilisateur, ainsi que Docker pour le 
+déploiement. Les traitements de données pourront s'appuyer sur Spark et les modèles 
+prédictifs sur des bibliothèques de Machine Learning. 
+ 
+ 
+Fait à Antananarivo, le 30/06/2026 
+ 
+Le stagiaire  
+Andriamitantsoa Miharivola Hasimamy 
+ 
+L’encadreur professionnel 
+
+--- PAGE 6 ---
+Rakotomalala Yvon Jocelin 
+ 

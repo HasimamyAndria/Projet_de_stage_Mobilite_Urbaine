@@ -1,0 +1,160 @@
+.zone-sheet {
+  padding: 0.9rem 1rem 1.2rem;
+  color: var(--ms-ink);
+}
+
+.zone-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+  padding: 0.2rem;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.zone-tabs button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.zone-tabs button.active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.zone-kicker {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.zone-sheet h2 {
+  margin: 0.2rem 0 0.15rem;
+  font-size: 1.2rem;
+}
+
+.zone-parent,
+.zone-sheet-muted,
+.zone-sheet-error {
+  margin: 0.15rem 0 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.zone-sheet-error {
+  color: #b91c1c;
+}
+
+.zone-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.7rem 0 0.8rem;
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.zone-pick select,
+.zone-clear {
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  padding: 0 0.55rem;
+}
+
+.zone-clear {
+  margin-bottom: 0.8rem;
+  cursor: pointer;
+}
+
+.zone-sheet h3 {
+  margin: 0.9rem 0 0.45rem;
+  font-size: 0.82rem;
+}
+
+.zone-stats {
+  margin: 0;
+}
+
+.zone-stats div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.38rem 0;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 0.82rem;
+}
+
+.zone-stats dt {
+  color: #64748b;
+}
+
+.zone-stats dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.mode-bar {
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e2e8f0;
+}
+
+.mode-legend {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  font-size: 0.75rem;
+}
+
+.mode-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mode-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+}
+
+.mode-legend strong {
+  margin-left: 0.15rem;
+}
+
+.zone-flow-list {
+  list-style: none;
+  margin: 0.4rem 0 0.8rem;
+  padding: 0;
+}
+
+.zone-flow-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 0.8rem;
+}
+
+.zone-flow-list small {
+  display: block;
+  color: #64748b;
+  font-size: 0.7rem;
+}

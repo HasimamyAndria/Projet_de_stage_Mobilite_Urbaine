@@ -1,6 +1,7 @@
 import { usePopover } from "./usePopover";
 
 export type LayerKey =
+  | "territory"
   | "roads"
   | "buildings"
   | "busStops"
@@ -26,20 +27,42 @@ export const LAYER_DEFS: Array<{
   group: "analyse" | "osm";
   layerIds: string[];
   defaultOn: boolean;
+  inPanel?: boolean;
 }> = [
+  {
+    key: "territory",
+    label: "Quartiers et arrondissements",
+    group: "analyse",
+    layerIds: [
+      "lens-communes-fill",
+      "lens-communes-line",
+      "lens-commune-labels",
+      "lens-flows-halo",
+      "lens-flows-line",
+      "lens-flows-arrow",
+      "lens-quartiers",
+      "lens-quartiers-focus",
+      "lens-quartier-halo",
+      "lens-quartier-role",
+      "lens-quartier-selected-labels",
+      "lens-quartier-labels",
+    ],
+    defaultOn: true,
+    inPanel: true,
+  },
   {
     key: "odFlows",
     label: "Flux OD",
     group: "analyse",
     layerIds: ["od-flows-line", "od-flows-line-halo", "od-nodes-circle"],
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     key: "heatmap",
     label: "Heatmap activité",
     group: "analyse",
     layerIds: ["od-heatmap-layer"],
-    defaultOn: true,
+    defaultOn: false,
   },
   {
     key: "heatmapOrigin",
@@ -125,13 +148,21 @@ export const LAYER_DEFS: Array<{
     layerIds: ["route-layer"],
     defaultOn: false,
   },
-  { key: "roads", label: "Routes", group: "osm", layerIds: ["roads"], defaultOn: false },
+  {
+    key: "roads",
+    label: "Routes",
+    group: "osm",
+    layerIds: ["roads"],
+    defaultOn: false,
+    inPanel: true,
+  },
   {
     key: "buildings",
     label: "Bâtiments",
     group: "osm",
     layerIds: ["buildings"],
     defaultOn: false,
+    inPanel: true,
   },
   {
     key: "busStops",
@@ -139,6 +170,7 @@ export const LAYER_DEFS: Array<{
     group: "osm",
     layerIds: ["bus-stops"],
     defaultOn: false,
+    inPanel: true,
   },
   {
     key: "busLines",
@@ -146,6 +178,7 @@ export const LAYER_DEFS: Array<{
     group: "osm",
     layerIds: ["bus-lines"],
     defaultOn: false,
+    inPanel: true,
   },
 ];
 
@@ -156,7 +189,8 @@ type Props = {
 
 export default function LayerPanel({ visibility, onToggle }: Props) {
   const { open, setOpen, ref } = usePopover();
-  const activeCount = LAYER_DEFS.filter((layer) => visibility[layer.key]).length;
+  const panelLayers = LAYER_DEFS.filter((layer) => layer.inPanel);
+  const activeCount = panelLayers.filter((layer) => visibility[layer.key]).length;
 
   return (
     <div className="map-ctrl" ref={ref}>
@@ -171,28 +205,35 @@ export default function LayerPanel({ visibility, onToggle }: Props) {
       </button>
       {open && (
         <div className="map-ctrl-popover layers-popover">
-          <p className="map-ctrl-group">Analyse</p>
-          {LAYER_DEFS.filter((layer) => layer.group === "analyse").map((layer) => (
-            <label key={layer.key}>
-              <input
-                type="checkbox"
-                checked={visibility[layer.key]}
-                onChange={() => onToggle(layer.key)}
-              />
-              {layer.label}
-            </label>
-          ))}
-          <p className="map-ctrl-group">Fond OSM</p>
-          {LAYER_DEFS.filter((layer) => layer.group === "osm").map((layer) => (
-            <label key={layer.key}>
-              <input
-                type="checkbox"
-                checked={visibility[layer.key]}
-                onChange={() => onToggle(layer.key)}
-              />
-              {layer.label}
-            </label>
-          ))}
+          <p className="map-ctrl-group">Repères</p>
+          {panelLayers
+            .filter((layer) => layer.group === "analyse")
+            .map((layer) => (
+              <label key={layer.key}>
+                <input
+                  type="checkbox"
+                  checked={visibility[layer.key]}
+                  onChange={() => onToggle(layer.key)}
+                />
+                {layer.label}
+              </label>
+            ))}
+          <p className="map-ctrl-group">Réseau</p>
+          {panelLayers
+            .filter((layer) => layer.group === "osm")
+            .map((layer) => (
+              <label key={layer.key}>
+                <input
+                  type="checkbox"
+                  checked={visibility[layer.key]}
+                  onChange={() => onToggle(layer.key)}
+                />
+                {layer.label}
+              </label>
+            ))}
+          <p className="layers-note">
+            Routes, bâtiments, arrêts et lignes de bus s'ajoutent seulement si vous les cochez. Le fond affiche déjà la ville.
+          </p>
         </div>
       )}
     </div>

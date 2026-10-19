@@ -13,7 +13,17 @@ Ce n'est PAS un 2SFCA (pas d'accessibilité spatiale inter-zones).
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.services.disaggregation import CO2_KG_PER_PKM, mode_shares_for_distance
 from app.services.provenance import get_data_provenance
+
+# Spec 6.3.4 — poids par défaut du score composite (somme = 1).
+CRITERIA_WEIGHTS = (
+    ("time", "Réduction du temps de trajet", 0.30, "h/j"),
+    ("km", "Réduction des kilomètres", 0.25, "km/j"),
+    ("co2", "Impact environnemental", 0.20, "kg CO₂/j"),
+    ("access", "Accessibilité multimodale", 0.15, "/100"),
+    ("feasibility", "Faisabilité opérationnelle", 0.10, "/100"),
+)
 
 
 def _eh_index(population: int, jobs: int) -> float | None:
@@ -298,6 +308,85 @@ def _dist_km(a: tuple[float, float], b: tuple[float, float]) -> float:
     return (dlon**2 + dlat**2) ** 0.5
 
 
+def _emission_kg_per_km(distance_km: float) -> float:
+    shares = mode_shares_for_distance(distance_km)
+    return sum(shares[mode] * CO2_KG_PER_PKM[mode] for mode in shares)
+
+
+def _avoided_gains(
+    basins: list[dict],
+    anchor_xy: tuple[float, float],
+    site_xy: tuple[float, float],
+) -> dict[str, float]:
+    """Gains sur les bassins à 6 km ou plus. Temps, km et CO₂ ne sont pas le même chiffre."""
+    km = time_h = co2_kg = 0.0
+    for basin in basins:
+        if not basin["costly"]:
+            continue
+        origin = (float(basin["lon"]), float(basin["lat"]))
+        distance_now = _dist_km(origin, anchor_xy)
+        distance_new = _dist_km(origin, site_xy)
+        if distance_new >= distance_now:
+            continue
+        volume = float(basin["volume"])
+        km += volume * (distance_now - distance_new)
+        speed_now = 16.0 if distance_now >= 8 else 22.0
+        speed_new = 16.0 if distance_new >= 8 else 22.0
+        time_h += volume * (distance_now / speed_now - distance_new / speed_new)
+        co2_kg += volume * (
+            distance_now * _emission_kg_per_km(distance_now)
+            - distance_new * _emission_kg_per_km(distance_new)
+        )
+    return {"km": km, "time_h": max(0.0, time_h), "co2_kg": max(0.0, co2_kg)}
+
+
+def _unit_interval(values: list[float]) -> list[float]:
+    low, high = min(values), max(values)
+    if high <= low:
+        return [0.0 if high <= 0 else 100.0 for _ in values]
+    return [100.0 * (value - low) / (high - low) for value in values]
+
+
+def rank_sites(rows: list[dict]) -> list[dict]:
+    """Classe les sites déjà retenus avec les cinq poids de la spec."""
+    if not rows:
+        return []
+    time_score = _unit_interval([float(row["time_h"]) for row in rows])
+    km_score = _unit_interval([float(row["km"]) for row in rows])
+    co2_score = _unit_interval([float(row["co2_kg"]) for row in rows])
+    scored = []
+    for index, row in enumerate(rows):
+        parts = {
+            "time": time_score[index],
+            "km": km_score[index],
+            "co2": co2_score[index],
+            "access": float(row["access"]),
+            "feasibility": float(row["feasibility"]),
+        }
+        raw_value = {
+            "time": round(float(row["time_h"]), 1),
+            "km": round(float(row["km"]), 1),
+            "co2": round(float(row["co2_kg"]), 1),
+            "access": round(float(row["access"]), 0),
+            "feasibility": round(float(row["feasibility"]), 0),
+        }
+        total = sum(weight * parts[key] for key, _label, weight, _unit in CRITERIA_WEIGHTS)
+        criteria = [
+            {
+                "id": key,
+                "label": label,
+                "weight": weight,
+                "score": int(round(parts[key])),
+                "value": raw_value[key],
+                "unit": unit,
+            }
+            for key, label, weight, unit in CRITERIA_WEIGHTS
+        ]
+        scored.append({**row, "impact_score": int(round(total)), "criteria": criteria})
+    scored.sort(key=lambda item: item["impact_score"], reverse=True)
+    return scored
+
+
 def get_satellite_sites(db: Session, zone_id: int | None = None, k: int = 5) -> dict:
     """
     Candidats bureaux satellites : barycentre pondéré des bassins résidentiels
@@ -398,7 +487,7 @@ def get_satellite_sites(db: Session, zone_id: int | None = None, k: int = 5) -> 
         if best is None:
             break
         remaining = [z for z in remaining if int(z.id) != int(best.id)]
-        chosen.append((best, best_score))
+        chosen.append(best)
 
     types = [
         "bureau_satellite",
@@ -417,10 +506,26 @@ def get_satellite_sites(db: Session, zone_id: int | None = None, k: int = 5) -> 
         "mixite": "Mixité fonctionnelle",
     }
 
+    ranked_rows = []
+    for z in chosen:
+        jobs = int(z.jobs_proxy or 0)
+        gains = _avoided_gains(basins, axy, (float(z.lon), float(z.lat)))
+        ranked_rows.append(
+            {
+                "zone": z,
+                "time_h": gains["time_h"],
+                "km": gains["km"],
+                "co2_kg": gains["co2_kg"],
+                "access": 100.0 if jobs > 6000 else 60.0,
+                "feasibility": 80.0 if jobs < 12000 else 35.0,
+            }
+        )
+    ranked = rank_sites(ranked_rows)
+
     candidates = []
-    for i, (z, score) in enumerate(chosen):
+    for i, row in enumerate(ranked):
+        z = row["zone"]
         t = types[i % len(types)]
-        km_saved = round((score or 0) * 0.08, 1)
         candidates.append(
             {
                 "rank": i + 1,
@@ -428,8 +533,9 @@ def get_satellite_sites(db: Session, zone_id: int | None = None, k: int = 5) -> 
                 "name": z.name,
                 "type": t,
                 "type_label": type_labels[t],
-                "impact_score": int(max(10, min(98, (score or 0) / 80))),
-                "km_saved_proxy": km_saved,
+                "impact_score": row["impact_score"],
+                "criteria": row["criteria"],
+                "km_saved_proxy": row["criteria"][1]["value"],
                 "constraints": {
                     "foncier": "disponible (proxy)" if (z.jobs_proxy or 0) < 12000 else "tendu",
                     "desserte_tc": "correcte (proxy centre)" if (z.jobs_proxy or 0) > 6000 else "à renforcer",
@@ -454,13 +560,19 @@ def get_satellite_sites(db: Session, zone_id: int | None = None, k: int = 5) -> 
         "barycenter": {"lon": round(bary[0], 6), "lat": round(bary[1], 6)},
         "candidates": candidates,
         "method": (
-            "Barycentre pondéré des bassins distants (>= 6 km) puis greedy "
-            "type p-médianes (k=3..5). Contraintes foncier/TC/PLU = proxies."
+            "Barycentre pondéré des bassins distants (>= 6 km), puis sélection gloutonne "
+            "de type p-médianes (k=3 à 5). Classement final : temps 30 %, kilomètres 25 %, "
+            "CO₂ 20 %, desserte 15 %, faisabilité 10 %. Foncier, TC et PLU restent des proxies."
         ),
+        "weights": [
+            {"id": key, "label": label, "weight": weight}
+            for key, label, weight, _unit in CRITERIA_WEIGHTS
+        ],
         "synthetic": True,
         "note": (
-            "Probabilité de relocalisation non calibrée sur enquête salariés. "
-            "Classement par impact mobilité estimé."
+            "Estimation simulée, pas une promesse. Le temps ralentit au-delà de 8 km, "
+            "le CO₂ suit la part modale selon la distance. "
+            "La probabilité qu'un salarié choisisse l'annexe n'est pas calibrée sur une enquête."
         ),
     }
 

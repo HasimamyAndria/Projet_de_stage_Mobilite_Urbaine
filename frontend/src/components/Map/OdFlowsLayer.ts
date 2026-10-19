@@ -253,6 +253,8 @@ export function fitMapToBBox(
   ) {
     return;
   }
+  const canvas = map.getCanvas();
+  if (canvas.clientWidth < 160 || canvas.clientHeight < 160) return;
   map.fitBounds(
     [
       [bbox.west, bbox.south],

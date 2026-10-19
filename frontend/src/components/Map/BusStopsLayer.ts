@@ -1,24 +1,18 @@
 import maplibregl from "maplibre-gl";
 import api from "../../services/api";
+import { addLayerUnderLabels } from "./basemap";
 
-export async function loadBusStops(map: maplibregl.Map) {
-
+export async function loadBusStops(map: maplibregl.Map, stale?: () => boolean) {
     const bounds = map.getBounds();
-
     const response = await api.get("/api/bus-stops", {
-
         params: {
-
             minLon: bounds.getWest(),
             minLat: bounds.getSouth(),
             maxLon: bounds.getEast(),
             maxLat: bounds.getNorth()
-
         }
-
     });
-
-    console.log("Arrêts de bus :", response.data.features.length);
+    if (stale?.() || !map.getStyle()) return;
 
     const source = map.getSource("bus-stops");
 
@@ -39,26 +33,17 @@ export async function loadBusStops(map: maplibregl.Map) {
 
         });
 
-        map.addLayer({
-
+        addLayerUnderLabels(map, {
             id: "bus-stops",
-
             type: "circle",
-
             source: "bus-stops",
-
+            layout: { visibility: "none" },
             paint: {
-
-                "circle-radius": 5,
-
-                "circle-color": "#0066ff",
-
-                "circle-stroke-width": 1,
-
-                "circle-stroke-color": "#ffffff"
-
-            }
-
+                "circle-radius": 4,
+                "circle-color": "#0369a1",
+                "circle-stroke-width": 1.5,
+                "circle-stroke-color": "#ffffff",
+            },
         });
 
     }

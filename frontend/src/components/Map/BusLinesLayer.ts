@@ -1,7 +1,8 @@
 import maplibregl from "maplibre-gl";
 import api from "../../services/api";
+import { addLayerUnderLabels } from "./basemap";
 
-export async function loadBusLines(map: maplibregl.Map) {
+export async function loadBusLines(map: maplibregl.Map, stale?: () => boolean) {
     const bounds = map.getBounds();
 
     const response = await api.get("/api/bus-lines", {
@@ -12,6 +13,8 @@ export async function loadBusLines(map: maplibregl.Map) {
             maxLat: bounds.getNorth(),
         },
     });
+
+    if (stale?.() || !map.getStyle()) return;
 
     const source = map.getSource("bus-lines");
 
@@ -25,14 +28,15 @@ export async function loadBusLines(map: maplibregl.Map) {
         data: response.data,
     });
 
-    map.addLayer({
+    addLayerUnderLabels(map, {
         id: "bus-lines",
         type: "line",
         source: "bus-lines",
+        layout: { visibility: "none" },
         paint: {
-            "line-color": "#0066ff",
-            "line-width": 4,
-            "line-opacity": 0.9,
+            "line-color": "#0369a1",
+            "line-width": 2.5,
+            "line-opacity": 0.85,
         },
     });
 }

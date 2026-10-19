@@ -5,19 +5,33 @@ const SRC = "satellites-src";
 const FILL = "satellites-fill";
 const POINT = "satellites-point";
 
-export async function loadSatellites(map: maplibregl.Map, zoneId?: number | null) {
-  const response = await api.get("/api/emploi-habitat/satellites", {
-    params: zoneId ? { zone_id: zoneId, k: 5 } : { k: 5 },
-  });
-  const data = response.data.geojson ?? {
-    type: "FeatureCollection",
-    features: [],
-  };
+export type AnnexesGeoJSON = {
+  type: "FeatureCollection";
+  features: Array<Record<string, unknown>>;
+};
+
+export async function loadSatellites(
+  map: maplibregl.Map,
+  zoneId?: number | null,
+  geojson?: AnnexesGeoJSON | null
+) {
+  let data: AnnexesGeoJSON;
+  if (geojson) {
+    data = geojson;
+  } else {
+    const response = await api.get("/api/emploi-habitat/satellites", {
+      params: zoneId ? { zone_id: zoneId, k: 5 } : { k: 5 },
+    });
+    data = response.data.geojson ?? {
+      type: "FeatureCollection",
+      features: [],
+    };
+  }
 
   const source = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined;
   if (source) {
     source.setData(data);
-    return response.data;
+    return { geojson: data };
   }
 
   map.addSource(SRC, { type: "geojson", data });
@@ -38,7 +52,7 @@ export async function loadSatellites(map: maplibregl.Map, zoneId?: number | null
         "case",
         ["==", ["get", "type"], "barycenter"],
         11,
-        7,
+        8,
       ],
       "circle-color": [
         "case",
@@ -50,5 +64,6 @@ export async function loadSatellites(map: maplibregl.Map, zoneId?: number | null
       "circle-stroke-color": "#0f172a",
     },
   });
-  return response.data;
+  return { geojson: data };
 }
+
